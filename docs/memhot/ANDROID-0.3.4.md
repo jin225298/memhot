@@ -21,3 +21,7 @@ APK 为 44,012,186 字节（约 42 MiB），SHA256：`e5a224a99edbb3c37f326805f8
 ## 发布检查
 
 首次发布在 Nginx reload 后即刻下载时被旧 worker 返回 404，工具自动恢复配置且未切换更新 feed。现在在完整 APK 校验之前增加最多 6 次 HEAD 路由探测，仅对 404 等待，拒绝重定向及其他异常，超时仍回滚。发布事务本身不自动重跑。新增两项探测回归，发布工具总计 18 项测试通过；重新发布使用全新私有阶段，保留原失败收据。
+
+发布已完成：公网更新 feed 为 **0.3.4 / 1007**，直连下载 HEAD 200、大小匹配；发布工具已完整下载 APK 并校验 SHA256。客户端更新清单与仓库产物完全一致，服务端 health 为 **0.3.9 / ok**。生产已保存 AIHOT 当期 15 条成品日报，原账号持有一份阅读引用。
+
+[安装包](https://memhot.angelkang.com/downloads/memhot-0.3.4-arm64.apk)，[公开更新清单](https://memhot.angelkang.com/updates/android-arm64.json)。

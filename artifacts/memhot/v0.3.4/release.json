@@ -1,0 +1,46 @@
+{
+  "android": {
+    "schemaVersion": 1,
+    "packageName": "com.angelkang.memhot",
+    "version": "0.3.4",
+    "versionCode": 1007,
+    "minSdk": 24,
+    "abi": "arm64-v8a",
+    "url": "https://memhot.angelkang.com/downloads/memhot-0.3.4-arm64.apk",
+    "size": 44012186,
+    "sha256": "e5a224a99edbb3c37f326805f88633133fa6bb8e6c7e4ed619e0d0dde1e82e41",
+    "notes": [
+      "日报与调研报告统一排版，增加阅读目录和收起的资料区。",
+      "思考和阅读按日期收纳，支持历史搜索、分类和归档。",
+      "删除思考移到明确位置，可选择少推荐类似问题。",
+      "主动新增或修改问题会更新个人偏好，可随时编辑。"
+    ],
+    "publishedAt": "2026-10-13T11:15:18Z"
+  },
+  "server": {
+    "stage": "/opt/memhot/deployments/server-0.3.9-20261013T095848Z",
+    "release": "/opt/memhot/releases/0.3.9-20261013T095848Z",
+    "manifestSha256": "ea126234dfc6d3b6da29ccf77104b346a4cad4ceca173b617b7fe740957dbac2",
+    "binarySha256": "fc12dc55c9afbbfe19678b4c22e889e72d3f660d85b0346d971845ad4642a71d"
+  },
+  "checks": {
+    "publicFeedMatches": true,
+    "directApkHead": true,
+    "serverHealth": {
+      "status": "ok",
+      "version": "0.3.9"
+    },
+    "browserSyntheticQA": true,
+    "signedApkNativeSmoke": true,
+    "rustAllTargetsPassed": 291,
+    "finalRestoreTestAdditional": 1,
+    "frontendTests": 21,
+    "publicationTests": 18,
+    "aihotProductionStories": 15,
+    "aihotOwnerReferenceCount": 1
+  },
+  "limitations": [
+    "Other-domain coverage remains limited; robotics sample contains one verified background article, no new item in the last 24 hours.",
+    "OnePlus long-duration battery/background behavior was not measured on the physical device."
+  ]
+}
