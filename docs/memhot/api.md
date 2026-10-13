@@ -69,3 +69,21 @@ JavaScript invoke命令：`plugin:memhot-capture|configure` args `{baseUrl,token
 - 原生新增`download_local_model`、`cancel_local_model_download`、`remove_local_model`、`set_asr_mode`、`retry_pending`、`get_launch_target`。`status`补充asrMode、模型状态、blockedCount与原生单调时钟elapsedMs。
 
 公开领域日报正文只存公共缓存一次；`/reports/:id`仍按用户投递引用鉴权，不能以公共edition ID绕过账号边界。
+
+
+## 来源订阅（服务端 0.3.10）
+
+均要求已有登录认证，只操作当前用户。返回 `subscriptions`、`sources`、`candidates`、`items` 等明确对象字段，不返回私人 RSS 原始地址。
+
+- `GET /api/v1/subscriptions`：关系、分类、启停、更新状态和文章数量。
+- `GET /api/v1/subscriptions/catalog`：可共享的服务器目录来源；用明确 `catalogId` 订阅才复用公共缓存。
+- `POST /api/v1/subscriptions/preview`：`{url}` 或 `{catalogId}`；识别 RSS/Atom 或网页内的订阅链接，返回最多 3 条预览及真实覆盖情况。预览不自动订阅。
+- `POST /api/v1/subscriptions`：`{url,title?,category?,catalogId?}`；添加来源。
+- `PUT /api/v1/subscriptions/:id`：`{title?,category?,enabled?}`；修改个人关系。
+- `DELETE /api/v1/subscriptions/:id`：取消订阅；越权/不存在统一 404。
+- `POST /api/v1/subscriptions/:id/refresh`：安排更新；不生成报告或消耗研究额度。
+- `GET /api/v1/subscriptions/:id/items`：近期文章、原始日期、摘要及原文链接。
+- `POST /api/v1/subscriptions/opml/preview`：`{xml}`，返回可导入项、重复数量和拒绝原因。
+- `POST /api/v1/subscriptions/import`：`{feeds:[{url,title,category}]}`，一次最多 100 项，完整验证后原子写入。每用户最多 200 个订阅。
+
+研究工具 `list_candidates({query?,cursor?,collectionId?})` 返回 `sources,totalCandidates,hasMore,nextCursor,collectionId`。分页不丢弃候选。私人 `search_subscriptions({query,offset?})` 可继续读取整个已收录集合，响应的 `subscriptionNextOffset` 指示下一批；该批次仍用候选游标选读。搜索摘要只有读取原文后才进入证据集合。

@@ -71,6 +71,7 @@ fn restore_material(v: &Value) -> Result<Material> {
     let publication_source = match v["publicationSource"].as_str().unwrap_or_default() {
         "original_page_metadata" => "original_page_metadata",
         "feed_publication" => "feed_publication",
+        "search_reported_publication" => "search_reported_publication",
         "crossref_publication" => "crossref_publication",
         _ => "unknown",
     };
@@ -447,5 +448,25 @@ mod tests {
             0
         );
         let _ = std::fs::remove_dir_all(app.data_dir.as_ref());
+    }
+    #[test]
+    fn discovery_snapshot_preserves_unread_search_marker_and_unknown_date() {
+        let candidate = Material {
+            title: "Unverified discovery".into(),
+            url: "https://example.org/candidate".into(),
+            text: "A discovery snippet cannot support an editorial claim.".into(),
+            published: None,
+            discovered: Some(now()),
+            discovered_via: Some("search".into()),
+            publication_source: "search_reported_publication",
+            publisher: "Example".into(),
+            fulltext: false,
+            pdf: None,
+        };
+        let restored = restore_material(&material_value(&candidate)).unwrap();
+        assert!(restored.is_search_snippet());
+        assert!(!restored.fulltext);
+        assert!(restored.published.is_none());
+        assert_eq!(restored.text, candidate.text);
     }
 }

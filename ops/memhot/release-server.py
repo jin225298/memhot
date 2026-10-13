@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 from release_bundle import bundle_verify, bundle_check, dependency_digest, node_check, sha
+from subscription_migration_check import verify_subscription_migration
 
 DATA = Path('/var/lib/memhot')
 CURRENT = Path('/opt/memhot/current')
@@ -142,8 +143,9 @@ def verify(stage, release, expected_sha, manifest_sha):
             f'MEMHOT_PROVIDER_FILE={stage / "providers.json"}', *extra, str(binary), 'check')
     after = inventory(clone / 'memhot.sqlite')
     before = state['preliminaryInventory']
-    if any(after[k] != before[k] for k in ('users', 'records', 'usersDigest', 'recordsDigest')):
-        raise RuntimeError('migration changed existing users, profiles or records')
+    if any(after[k] != before[k] for k in ('users', 'records', 'recordsDigest')):
+        raise RuntimeError('migration changed existing users or records')
+    verify_subscription_migration(stage / 'preliminary.sqlite', clone / 'memhot.sqlite')
     if after['integrity'] != 'ok':
         raise RuntimeError('migrated clone integrity failed')
     save(stage / 'verified.json', {'release': str(release), 'sha256': digest, 'manifestSha256': manifest_sha, 'sdkSourceDigest': sdk['sourceDigest'], 'dependenciesDigest': sdk['dependenciesDigest'], 'runtime': sdk['runtime'], 'dropinSha256': sha(stage / 'hosted-beta.conf'), 'providerSha256': sha(stage / 'providers.json'), 'alphaXivSha256': sha(alpha) if alpha.exists() else None, 'inventory': after})

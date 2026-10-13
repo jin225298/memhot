@@ -190,90 +190,29 @@ pub async fn public_search(query: &str, recent: bool) -> Vec<Material> {
     result
 }
 pub use crate::feed::parse as parse_feed;
-pub async fn discover(profile: &Value, queries: &[String]) -> (Vec<Material>, Vec<String>) {
-    discover_limited(profile, queries, 6).await
+pub async fn discover(
+    profile: &Value,
+    queries: &[String],
+    subscriptions: Vec<Material>,
+) -> (Vec<Material>, Vec<String>) {
+    discover_limited(profile, queries, 6, subscriptions).await
 }
 pub async fn discover_limited(
     profile: &Value,
     queries: &[String],
     max_fetch: usize,
+    mut feed_found: Vec<Material>,
 ) -> (Vec<Material>, Vec<String>) {
     let digest = profile["_discoveryKind"] == "digest";
     let mut found = Vec::new();
-    let mut feed_found = Vec::new();
     let mut warnings = Vec::new();
-    if let Some(feeds) = profile["feeds"].as_array() {
-        // Rotate a bounded batch so later subscriptions are not permanently ignored.
-        let start =
-            (chrono::Utc::now().timestamp().div_euclid(86400) as usize * 3) % feeds.len().max(1);
-        for feed in feeds
-            .iter()
-            .cycle()
-            .skip(start)
-            .take(feeds.len().min(3))
-            .filter_map(Value::as_str)
-        {
-            match tokio::time::timeout(std::time::Duration::from_secs(15), network::fetch(feed))
-                .await
-            {
-                Ok(Ok(data)) => feed_found.extend(crate::feed::parse_from(&data.text, Some(feed))),
-                _ => warnings.push("有订阅来源暂时无法读取".into()),
-            }
-        }
-    }
-    let tavily = &profile["search"];
-    let use_tavily =
-        tavily["provider"] == "tavily" && tavily["apiKey"].as_str().is_some_and(|s| !s.is_empty());
     for query in queries.iter().take(if digest { 2 } else { 4 }) {
-        if crate::search_backend::configured() {
-            match crate::search_backend::search(query, digest).await {
-                Ok((materials, notes)) => {
-                    found.extend(materials);
-                    warnings.extend(notes);
-                }
-                Err(_) => {
-                    warnings.push("免费聚合搜索暂不可用，本次使用公开学术与订阅来源补充".into())
-                }
-            }
-        }
-        if use_tavily {
-            let mut request = json!({"api_key":tavily["apiKey"],"query":clip(query,300),"max_results":6,"search_depth":"basic","include_answer":false,"include_raw_content":false});
-            if digest {
-                request["topic"] = json!("news");
-                request["time_range"] = json!("week");
-            }
-            match network::json_post("https://api.tavily.com/search", Default::default(), request)
-                .await
-            {
-                Ok(data) => {
-                    if let Some(results) = data["results"].as_array() {
-                        for r in results {
-                            if let Some(url) = r["url"].as_str() {
-                                found.push(Material {
-                                    title: r["title"].as_str().unwrap_or("搜索资料").into(),
-                                    url: url.into(),
-                                    text: r["content"].as_str().unwrap_or_default().into(),
-                                    published: r["published_date"].as_str().map(str::to_owned),
-                                    discovered: None,
-                                    discovered_via: Some("https://api.tavily.com/search".into()),
-                                    publication_source: "search_reported_publication",
-                                    publisher: network::validate_url(url)
-                                        .ok()
-                                        .and_then(|u| u.host_str().map(str::to_owned))
-                                        .unwrap_or_default(),
-                                    fulltext: false,
-                                    pdf: None,
-                                });
-                            }
-                        }
-                    }
-                }
-                Err(_) => {
-                    warnings.push("Tavily搜索失败，改用公开资料接口".into());
-                    found.extend(public_search(query, digest).await);
-                }
-            }
-        } else {
+        let result =
+            crate::search_providers::configured_search(&profile["search"], query, digest).await;
+        let fallback = result.needs_public_fallback;
+        found.extend(result.materials);
+        warnings.extend(result.warnings);
+        if fallback {
             found.extend(public_search(query, digest).await);
         }
     }
@@ -289,7 +228,13 @@ pub async fn discover_limited(
     } else {
         queries
     };
-    let excluded = crate::feed::filter_topics(&mut feed_found, feed_queries);
+    // Explicit subscriptions are a reader's selection. Their daily edition must
+    // not drop English feeds merely because the user's interest labels are Chinese.
+    let excluded = if digest {
+        0
+    } else {
+        crate::feed::filter_topics(&mut feed_found, feed_queries)
+    };
     if excluded > 0 {
         warnings.push("已排除与当前主题缺少明确关联的订阅条目".into());
     }
@@ -305,10 +250,9 @@ pub async fn discover_limited(
         freshness::prepare(&mut feed_found, &prior, chrono::Utc::now());
     }
     // Search candidates always precede subscribed feeds; round-robin keeps a feed from monopolizing seats.
-    found = diverse(found, feed_found, if digest { 10 } else { 16 });
+    found = diverse(found, feed_found);
     let mut seen = HashSet::new();
     found.retain(|m| network::validate_url(&m.url).is_ok() && seen.insert(m.url.clone()));
-    found.truncate(if digest { 10 } else { 16 });
     for material in found.iter_mut().take(max_fetch.min(6)) {
         match tokio::time::timeout(
             std::time::Duration::from_secs(15),
@@ -342,15 +286,21 @@ pub async fn discover_limited(
         }
     }
     if digest {
-        let excluded = freshness::select(&mut found, &prior, chrono::Utc::now());
-        if excluded > 0 {
-            warnings.push("已按原文发表日期再次筛选；排除旧文、重复、日期不明内容，HN提交/聚合日期不作为发表日期".into());
+        // Unknown discovery dates remain selectable for original-page verification.
+        // Only pages already read are subjected to the post-read date gate here.
+        let before = found.len();
+        found.retain(|m| {
+            !m.fulltext || {
+                let mut item = vec![m.clone()];
+                freshness::select(&mut item, &prior, chrono::Utc::now());
+                !item.is_empty()
+            }
+        });
+        if before != found.len() {
+            warnings
+                .push("已排除读后确认过旧、重复或日期未知的原文；未读取线索仍可继续核查".into());
         }
     }
-    found.retain(|m| {
-        !m.text.trim().is_empty()
-            && (m.publication_source != "search_reported_publication" || m.fulltext)
-    });
     if found.is_empty() {
         warnings.push("未找到可核对的公开正文或摘要；需要更具体的研究问题或自定义RSS信源".into());
     }
@@ -410,30 +360,23 @@ mod tests {
     }
 }
 
-fn diverse(search: Vec<Material>, mut feeds: Vec<Material>, limit: usize) -> Vec<Material> {
+fn diverse(search: Vec<Material>, mut feeds: Vec<Material>) -> Vec<Material> {
     feeds.sort_by(|a, b| b.published.cmp(&a.published));
     let mut a = search.into_iter();
     let mut b = feeds.into_iter();
     let mut out = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    let mut domains = std::collections::HashMap::new();
     loop {
         let mut any = false;
         for candidate in [a.next(), a.next(), b.next()].into_iter().flatten() {
             any = true;
-            let Ok(url) = network::validate_url(&candidate.url) else {
+            let Ok(_) = network::validate_url(&candidate.url) else {
                 continue;
             };
-            let domain = url.host_str().unwrap_or_default().to_owned();
-            let count = domains.entry(domain).or_insert(0usize);
-            if *count >= 2 || !seen.insert(candidate.url.clone()) {
+            if !seen.insert(crate::freshness::canonical(&candidate.url)) {
                 continue;
             }
-            *count += 1;
             out.push(candidate);
-            if out.len() >= limit {
-                return out;
-            }
         }
         if !any {
             break;

@@ -13,7 +13,7 @@ pub(crate) use publication::schedule_publication;
 pub struct Interests {
     pub public: Vec<&'static shared_public::CatalogTopic>,
     pub private: Vec<String>,
-    pub feeds: Vec<Value>,
+    pub subscriptions: bool,
 }
 pub fn interests(app: &App, user: &str) -> Result<Interests> {
     let profile = app.store.profile(user)?;
@@ -44,7 +44,7 @@ pub fn interests(app: &App, user: &str) -> Result<Interests> {
     Ok(Interests {
         public,
         private,
-        feeds: profile["feeds"].as_array().cloned().unwrap_or_default(),
+        subscriptions: crate::subscription_store::has_enabled(app, user)?,
     })
 }
 /// Enqueue one bounded public edition task per catalog topic; private input stays in a separate task.
@@ -55,7 +55,7 @@ fn dispatch(app: &App, job: &Job, syndicated: bool) -> Result<Vec<(&'static str,
         .iter()
         .map(|topic| json!({"kind":"digest","digestStage":"public","catalogTopicId":topic.id}))
         .collect();
-    if !interests.private.is_empty() || !interests.feeds.is_empty() {
+    if !interests.private.is_empty() || interests.subscriptions {
         payloads.push(json!({"kind":"digest","digestStage":"private"}));
     }
     let mut conn = app.store.conn()?;

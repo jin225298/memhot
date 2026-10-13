@@ -76,6 +76,39 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/home", get(home))
         .route("/api/v1/delivery", get(delivery))
         .route("/api/v1/profile", get(profile::get).put(profile::update))
+        .route(
+            "/api/v1/subscriptions",
+            get(crate::subscriptions::list).post(crate::subscriptions::create),
+        )
+        .route(
+            "/api/v1/subscriptions/catalog",
+            get(crate::subscription_preview_api::catalog),
+        )
+        .route(
+            "/api/v1/subscriptions/preview",
+            post(crate::subscription_preview_api::preview),
+        )
+        .route(
+            "/api/v1/subscriptions/opml/preview",
+            post(crate::subscription_preview_api::opml_preview)
+                .layer(DefaultBodyLimit::max(512 * 1024)),
+        )
+        .route(
+            "/api/v1/subscriptions/import",
+            post(crate::subscriptions::import),
+        )
+        .route(
+            "/api/v1/subscriptions/{id}",
+            axum::routing::put(crate::subscriptions::update).delete(crate::subscriptions::delete),
+        )
+        .route(
+            "/api/v1/subscriptions/{id}/refresh",
+            post(crate::subscriptions::refresh),
+        )
+        .route(
+            "/api/v1/subscriptions/{id}/items",
+            get(crate::subscription_items::list),
+        )
         .route("/api/v1/models/test", post(crate::models::test))
         .route("/api/v1/sources", post(sources::create))
         .route("/api/v1/sources/{id}/analyze", post(sources::analyze))
@@ -181,7 +214,7 @@ async fn home(State(app): State<App>, User(user): User) -> Result<Json<Value>> {
         .collect();
     let conversations:Vec<_>=app.store.list(&user,"conversation")?.iter().map(|c|json!({"id":c["id"],"reportId":c["reportId"],"thoughtId":c["thoughtId"],"updatedAt":c["updatedAt"],"createdAt":c["createdAt"]})).collect();
     Ok(Json(
-        json!({"profile":profile::public_profile(&app.store.profile(&user)?),"thoughts":app.store.list(&user,"thought")?.into_iter().filter(|t| t["status"] != "deleted").collect::<Vec<_>>(),"reports":reports,"sources":sources,"jobs":app.store.jobs(&user)?,"conversations":conversations}),
+        json!({"profile":profile::snapshot(&app, &user)?,"thoughts":app.store.list(&user,"thought")?.into_iter().filter(|t| t["status"] != "deleted").collect::<Vec<_>>(),"reports":reports,"sources":sources,"jobs":app.store.jobs(&user)?,"conversations":conversations}),
     ))
 }
 async fn clear(State(app): State<App>, User(user): User) -> Result<StatusCode> {
@@ -195,6 +228,8 @@ async fn clear(State(app): State<App>, User(user): User) -> Result<StatusCode> {
     tx.execute("DELETE FROM records WHERE user_id=?", [&user])?;
     tx.execute("DELETE FROM jobs WHERE user_id=?", [&user])?;
     tx.execute("DELETE FROM receipts WHERE user_id=?", [&user])?;
+    crate::subscription_store::clear_user(&tx, &user)?;
+    crate::agent::candidates::clear_user(&tx, &user)?;
     tx.execute(
         "UPDATE users SET profile=?,epoch=epoch+1 WHERE id=?",
         rusqlite::params![profile::default_profile().to_string(), user],

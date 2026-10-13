@@ -160,11 +160,10 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     let mut profile = app.store.profile(&job.user)?;
     if kind == "digest" {
         let selected = crate::digest::interests(app, &job.user)?;
-        if selected.private.is_empty() && selected.feeds.is_empty() {
+        if selected.private.is_empty() && !selected.subscriptions {
             return Ok(vec![]);
         }
         profile["interests"] = json!(selected.private);
-        profile["feeds"] = json!(selected.feeds);
     } else {
         let cognition = crate::cognition::context(app, &job.user)?;
         let mut interests = profile["interests"].as_array().cloned().unwrap_or_default();
@@ -228,7 +227,7 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     }
     let topic = if topic.is_empty()
         && kind == "digest"
-        && !profile["feeds"].as_array().is_none_or(Vec::is_empty)
+        && crate::subscription_store::has_enabled(app, &job.user)?
     {
         "我的订阅来源新进展".into()
     } else {
@@ -254,9 +253,16 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
         profile["_initialDigestQueries"] = json!(queries);
         profile["_seenDigestUrls"] =
             json!(freshness::prior_urls(&app.store.list(&job.user, "report")?));
-        discovery::discover(&profile, &queries).await
+        discovery::discover(
+            &profile,
+            &queries,
+            crate::subscription_items::materials(app, &job.user)?,
+        )
+        .await
     } else {
-        (Vec::new(), Vec::new())
+        let mut subscribed = crate::subscription_items::materials(app, &job.user)?;
+        crate::feed::filter_topics(&mut subscribed, &[topic.clone()]);
+        (subscribed, Vec::new())
     };
     gaps.extend(warnings);
     if kind == "digest" {

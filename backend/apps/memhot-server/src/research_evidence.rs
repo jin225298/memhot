@@ -142,7 +142,7 @@ async fn gather_pass(
     previous: &Value,
 ) -> Result<(Vec<Claim>, research_quality::Assessment, Value)> {
     let retained_input = claim_input(baseline, evidence);
-    let inventory:Vec<_> = materials.iter().map(|m| {
+    let inventory:Vec<_> = materials.iter().take(20).map(|m| {
             let e=m.evidence(); json!({"evidenceId":e["id"],"title":m.title,"url":m.url,
                 "material":clip(&m.text,if m.fulltext {6000}else{1000}),"extraction":m.extraction(),
                 "truncated":m.pdf.as_ref().is_some_and(|p|p.truncated) || m.text.chars().count()>if m.fulltext{6000}else{1000},
@@ -153,7 +153,7 @@ async fn gather_pass(
             instructions:prompts::GATHER,
             prompt:json!({"question":clip(topic,2400),"asOf":crate::now(),"originalThinking":prompts::thinking(thought),
                 "initialMaterials":inventory,"previousReview":previous}),
-            max_steps:if pass==0 {6}else{4},max_output_tokens:8192,tools:true,
+            max_steps:if pass==0 {12}else{6},max_output_tokens:8192,tools:true,
         },ToolContext{materials:materials.clone(),profile:profile.clone()}).await?;
     *materials = output.materials;
     *evidence = materials.iter().map(Material::evidence).collect();

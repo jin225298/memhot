@@ -7,7 +7,7 @@ use crate::{
     feed, freshness, App,
 };
 use chrono::Utc;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 pub(super) struct Retrieved {
@@ -16,6 +16,7 @@ pub(super) struct Retrieved {
     pub gaps: Vec<String>,
     pub aihot_context: Option<serde_json::Value>,
 }
+#[derive(Clone)]
 struct Candidate {
     material: Material,
     abstract_allowed: bool,
@@ -37,11 +38,11 @@ fn feed_candidate(mut m: Material, url: &str) -> Candidate {
         m.url = m.url.replacen("http://", "https://", 1);
     }
     if !abstract_allowed {
-        m.text.clear();
+        m.publication_source = "search_reported_publication";
     }
     if !same_publisher {
         m.published = None;
-        m.publication_source = "unknown";
+        m.publication_source = "search_reported_publication";
     }
     Candidate {
         material: m,
@@ -50,10 +51,9 @@ fn feed_candidate(mut m: Material, url: &str) -> Candidate {
 }
 fn search_candidate(mut m: Material) -> Candidate {
     // Neither a search snippet nor a search engine's date is an original fact source.
-    m.text.clear();
     m.published = None;
     m.fulltext = false;
-    m.publication_source = "unknown";
+    m.publication_source = "search_reported_publication";
     m.url = freshness::canonical(&m.url);
     Candidate {
         material: m,
@@ -76,11 +76,10 @@ async fn fetch_feed(
             }
             let mut items = feed::parse_from(&page.text, Some(url));
             items.retain(|m| catalog_data::relevant(topic, m));
-            freshness::prepare(&mut items, &HashSet::new(), Utc::now());
             items.sort_by_key(|m| {
                 std::cmp::Reverse(m.published.as_deref().and_then(freshness::publication))
             });
-            for m in items.into_iter().take(10) {
+            for m in items {
                 let candidate = feed_candidate(m, url);
                 metadata.insert(
                     candidate.material.url.clone(),
@@ -127,41 +126,9 @@ async fn search(topic: &CatalogTopic) -> Vec<Candidate> {
         })
         .await
         .unwrap_or_default();
-        found.extend(result.into_iter().take(6).map(search_candidate));
+        found.extend(result.into_iter().map(search_candidate));
     }
     found
-}
-fn balanced(groups: Vec<Vec<Candidate>>, limit: usize) -> Vec<Candidate> {
-    let mut groups: Vec<VecDeque<_>> = groups.into_iter().map(VecDeque::from).collect();
-    let mut seen = HashSet::new();
-    let mut publishers = HashMap::new();
-    let mut out = Vec::new();
-    loop {
-        let mut any = false;
-        for group in &mut groups {
-            let Some(candidate) = group.pop_front() else {
-                continue;
-            };
-            any = true;
-            let Ok(url) = crate::network::validate_url(&candidate.material.url) else {
-                continue;
-            };
-            let count = publishers
-                .entry(url.host_str().unwrap_or_default().to_owned())
-                .or_insert(0);
-            if *count >= 2 || !seen.insert(candidate.material.url.clone()) {
-                continue;
-            }
-            *count += 1;
-            out.push(candidate);
-            if out.len() >= limit {
-                return out;
-            }
-        }
-        if !any {
-            return out;
-        }
-    }
 }
 async fn enrich_inner(
     app: App,
@@ -169,9 +136,11 @@ async fn enrich_inner(
 ) -> (Material, Option<(i64, String)>, Option<String>) {
     let mut material = candidate.material;
     let Ok(url) = register_public(&app, &material.url) else {
-        material.text.clear();
-        material.published = None;
-        return (material, None, Some("不符合共享缓存规则的URL已排除".into()));
+        return (
+            material,
+            None,
+            Some("部分链接未进入共享正文缓存，可从候选池继续核验".into()),
+        );
     };
     match cached_page(&app, &url).await {
         Ok(page) => {
@@ -202,7 +171,7 @@ async fn enrich_inner(
             let warning = if candidate.abstract_allowed {
                 "部分官方来源只取得其订阅摘要，未读取完整正文"
             } else {
-                "部分发现链接未取得正文，已排除其搜索或媒体摘要"
+                "部分发现链接未取得正文，保留为未读候选"
             };
             (material, None, Some(warning.into()))
         }
@@ -224,7 +193,7 @@ async fn enrich(
 
 /// Only called with a server catalog scope. Search snippets are discoveries, not evidence.
 pub(super) async fn agent_search(
-    app: &App,
+    _app: &App,
     topic: &'static CatalogTopic,
     query: &str,
 ) -> Result<Vec<Material>> {
@@ -238,24 +207,14 @@ pub(super) async fn agent_search(
     .await
     .unwrap_or_default();
     candidates.retain(|m| catalog_data::relevant(topic, m));
-    let candidates = balanced(
-        vec![candidates.into_iter().map(search_candidate).collect()],
-        8,
-    );
-    let mut tasks = tokio::task::JoinSet::new();
-    for candidate in candidates.into_iter().take(4) {
-        tasks.spawn(enrich(app.clone(), candidate));
-    }
-    let mut materials = Vec::new();
-    while let Some(result) = tasks.join_next().await {
-        if let Ok((material, _, _)) = result {
-            materials.push(material);
-        }
-    }
-    freshness::select(&mut materials, &HashSet::new(), Utc::now());
-    materials.retain(|m| m.text.chars().count() >= 80 && catalog_data::relevant(topic, m));
-    materials.sort_by(|a, b| a.url.cmp(&b.url));
-    Ok(materials)
+    // Keep every discovery. The editor chooses which original pages to read via
+    // read_source; publication/grounding gates still run before publishing.
+    Ok(
+        candidate_reserve(vec![candidates.into_iter().map(search_candidate).collect()])
+            .into_iter()
+            .map(|c| c.material)
+            .collect(),
+    )
 }
 pub(super) async fn collect(app: &App, topic: &'static CatalogTopic) -> Result<Retrieved> {
     let (aihot, feeds, search) =
@@ -278,56 +237,36 @@ pub(super) async fn collect(app: &App, topic: &'static CatalogTopic) -> Result<R
         metadata.extend(meta);
         gaps.extend(notes);
     }
+    // Only catalog-owned cache entries can cross this public boundary. User feeds
+    // are consumed by private editions/research, regardless of their URL shape.
+    let cached = crate::subscription_items::public_materials(app)?;
+    groups.push(
+        cached
+            .into_iter()
+            .filter(|m| catalog_data::relevant(topic, m))
+            .map(|m| {
+                let origin = m.discovered_via.clone().unwrap_or_default();
+                feed_candidate(m, &origin)
+            })
+            .collect(),
+    );
     groups.push(search);
-    // Consider a larger bounded reserve; publisher quotas apply to successful materials,
-    // so a failed first link no longer consumes that publisher's only useful seat.
-    let mut pending = candidate_reserve(groups, 48).into_iter();
-    let mut tasks = tokio::task::JoinSet::new();
-    let mut materials = Vec::new();
-    let mut publishers = HashMap::<String, usize>::new();
-    let mut excluded = 0;
-    loop {
-        while tasks.len() < 4 && materials.len() + tasks.len() < 24 {
-            let Some(candidate) = pending.next() else {
-                break;
-            };
-            tasks.spawn(enrich(app.clone(), candidate));
-        }
-        let Some(result) = tasks.join_next().await else {
-            break;
-        };
-        if let Ok((material, meta, note)) = result {
-            if let Some(meta) = meta {
-                metadata.insert(material.url.clone(), meta);
-            }
-            if let Some(note) = note {
-                gaps.push(note);
-            }
-            let mut checked = vec![material];
-            excluded += freshness::select(&mut checked, &HashSet::new(), Utc::now());
-            if let Some(material) = checked
-                .pop()
-                .filter(|m| m.text.trim().chars().count() >= 80 && catalog_data::relevant(topic, m))
-            {
-                let count = publishers.entry(material.publisher.clone()).or_default();
-                if *count < 4 {
-                    *count += 1;
-                    materials.push(material);
-                }
-            }
-        }
-    }
+    let candidates = candidate_reserve(groups);
+    let (mut materials, collected_metadata, notes) =
+        prefetch(candidates, Duration::from_secs(90), |candidate| {
+            enrich(app.clone(), candidate)
+        })
+        .await;
+    metadata.extend(collected_metadata);
+    gaps.extend(notes);
     // Stable source order makes the stored editorial fingerprint independent of fetch completion.
     materials.sort_by(|a, b| a.url.cmp(&b.url));
-    if excluded > 0 {
-        gaps.push(format!("排除了{excluded}条发布日期未知、过旧或未来的材料"));
-    }
     gaps.sort();
     gaps.dedup();
     if materials.is_empty() {
         return Err(Error::upstream(
             "no_fresh_sources",
-            "未取得发布日期可核对的新材料",
+            "未取得可供继续核验的公开线索",
         ));
     }
     Ok(Retrieved {
@@ -336,6 +275,73 @@ pub(super) async fn collect(app: &App, topic: &'static CatalogTopic) -> Result<R
         gaps,
         aihot_context,
     })
+}
+
+/// Prefetch is a latency budget, never a discovery limit. Every original candidate
+/// remains in the returned pool even when its read times out or the budget ends.
+async fn prefetch<F, Fut>(
+    candidates: Vec<Candidate>,
+    budget: Duration,
+    fetch: F,
+) -> (Vec<Material>, HashMap<String, (i64, String)>, Vec<String>)
+where
+    F: Fn(Candidate) -> Fut,
+    Fut: std::future::Future<Output = (Material, Option<(i64, String)>, Option<String>)>
+        + Send
+        + 'static,
+{
+    let mut materials: Vec<_> = candidates.iter().map(|c| c.material.clone()).collect();
+    let mut pending = candidates.into_iter().enumerate();
+    let mut tasks = tokio::task::JoinSet::new();
+    let deadline = tokio::time::Instant::now() + budget;
+    let mut metadata = HashMap::new();
+    let mut notes = Vec::new();
+    let mut read = 0;
+    loop {
+        while tasks.len() < 4 && read + tasks.len() < 24 && tokio::time::Instant::now() < deadline {
+            let Some((index, candidate)) = pending.next() else {
+                break;
+            };
+            let future = fetch(candidate);
+            tasks.spawn(async move { (index, future.await) });
+        }
+        if tasks.is_empty() {
+            break;
+        }
+        let result = tokio::select! {
+            result = tasks.join_next() => result,
+            _ = tokio::time::sleep_until(deadline) => {
+                notes.push("预读取时间已用完，其余线索保留在候选池，可继续分页选读".into());
+                tasks.abort_all();
+                break;
+            }
+        };
+        if let Some(Ok((index, (material, meta, note)))) = result {
+            if let Some(meta) = meta {
+                metadata.insert(material.url.clone(), meta);
+            }
+            if let Some(note) = note {
+                notes.push(note);
+            }
+            if material.fulltext {
+                read += 1;
+                if !material
+                    .published
+                    .as_deref()
+                    .and_then(freshness::publication)
+                    .is_some_and(|date| freshness::recent(date, Utc::now()))
+                {
+                    notes.push(
+                        "部分已读原文过旧或日期未确认，仅可作为背景，不作为本期新进展".into(),
+                    );
+                }
+            }
+            // Keep original-page dates, including old ones. Never roll a read
+            // back to its newer search date merely because it failed freshness.
+            materials[index] = material;
+        }
+    }
+    (materials, metadata, notes)
 }
 
 async fn aihot_seed(
@@ -366,20 +372,21 @@ async fn aihot_seed(
     Ok((materials, found.overview))
 }
 
-fn candidate_reserve(groups: Vec<Vec<Candidate>>, limit: usize) -> Vec<Candidate> {
+fn candidate_reserve(groups: Vec<Vec<Candidate>>) -> Vec<Candidate> {
     let mut groups: Vec<VecDeque<_>> = groups.into_iter().map(VecDeque::from).collect();
     let mut seen = HashMap::<String, usize>::new();
     let mut out: Vec<Candidate> = Vec::new();
     while groups.iter().any(|g| !g.is_empty()) {
         for group in &mut groups {
             if let Some(candidate) = group.pop_front() {
-                if crate::network::validate_url(&candidate.material.url).is_err() {
+                if crate::subscription_preview::public_url(&candidate.material.url).is_err() {
                     continue;
                 }
-                if let Some(&index) = seen.get(&candidate.material.url) {
+                let canonical = freshness::canonical(&candidate.material.url);
+                if let Some(&index) = seen.get(&canonical) {
                     merge_candidate(&mut out[index], candidate);
-                } else if out.len() < limit {
-                    seen.insert(candidate.material.url.clone(), out.len());
+                } else {
+                    seen.insert(canonical, out.len());
                     out.push(candidate);
                 }
             }

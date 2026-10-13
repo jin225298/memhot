@@ -8,12 +8,18 @@ use crate::{
 use serde_json::{json, Value};
 #[path = "agent_aihot_definition.rs"]
 mod aihot_definition;
+#[path = "agent_candidates.rs"]
+pub(crate) mod candidates;
 #[path = "agent_papers.rs"]
 mod papers;
 #[path = "agent_process.rs"]
 mod process;
+#[path = "agent_search.rs"]
+mod search;
 #[path = "agent_state.rs"]
 mod state;
+#[path = "agent_subscription_tools.rs"]
+mod subscription_tools;
 #[path = "agent_tools.rs"]
 mod tools;
 
@@ -146,7 +152,7 @@ pub async fn run(app: &App, scope: &Scope, spec: Spec<'_>, context: ToolContext)
     if !matches!(
         spec.mode,
         "digest" | "research" | "discussion" | "translation" | "review"
-    ) || !(1..=8).contains(&spec.max_steps)
+    ) || !(1..=16).contains(&spec.max_steps)
         || !(1..=8192).contains(&spec.max_output_tokens)
         || spec.purpose.is_empty()
         || spec.purpose.len() > 100
@@ -167,9 +173,21 @@ pub async fn run(app: &App, scope: &Scope, spec: Spec<'_>, context: ToolContext)
     } else {
         spec.instructions.to_owned()
     };
+    let instructions = if spec.tools {
+        format!("{}\n候选资料按页提供，不代表资料总量上限。先结合用户关注领域、目标、偏好比较多个方向，再选择原文。用list_candidates继续翻页或按关键词筛选完整候选池；hasMore为true时不能声称已看完全部资料。search、search_subscriptions或papers返回的candidateOnly条目是线索，必须read_source或papers read读取后才可引用。需要更多覆盖时细化检索；在当前时间预算内仍未读到的材料，明确是覆盖不足，不编造缺失结论。", instructions)
+    } else {
+        instructions
+    };
+    let mut prompt = spec.prompt;
+    if spec.tools {
+        if let Scope::Private { user, .. } = scope {
+            prompt["readerPreferences"] = json!(crate::cognition::formation_context(app, user)?);
+            prompt["followedInterests"] = context.profile["interests"].clone();
+        }
+    }
     let input = json!({"type":"start","runId":scope.key(spec.purpose),"mode":spec.mode,
         "model":{"protocol":config["protocol"].as_str().unwrap_or("openai"),"model":config["model"]},
-        "prompt":spec.prompt.to_string(),"instructions":instructions,
+        "prompt":prompt.to_string(),"instructions":instructions,
         "tools":if spec.tools {tools::definitions(scope, paper_tools)} else {json!([])},"maxSteps":spec.max_steps,"maxOutputTokens":spec.max_output_tokens});
     static CHILD_GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
     let _child = tokio::time::timeout(
@@ -260,6 +278,7 @@ pub async fn text(
 
 /// Raw prompts and provider continuation metadata are private and expire after 24 hours.
 pub fn retention(app: &App) -> Result<()> {
+    candidates::retention(app, chrono::Utc::now().timestamp())?;
     let cutoff = (chrono::Utc::now() - chrono::Duration::hours(24))
         .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let conn = app.store.conn()?;

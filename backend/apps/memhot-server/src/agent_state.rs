@@ -31,14 +31,13 @@ impl Saved {
             .collect()
     }
     pub fn set_materials(&mut self, materials: &[Material]) {
-        self.context["materials"] =
-            json!(materials.iter().take(40).map(encode).collect::<Vec<_>>());
+        self.context["materials"] = json!(materials.iter().map(encode).collect::<Vec<_>>());
     }
 }
 pub(super) fn encode(m: &Material) -> Value {
     json!({"title":m.title,"url":m.url,"text":m.text,"published":m.published,"discovered":m.discovered,"discoveredVia":m.discovered_via,"publicationSource":m.publication_source,"publisher":m.publisher,"fulltext":m.fulltext,"extraction":m.extraction()})
 }
-fn decode(v: &Value) -> Option<Material> {
+pub(super) fn decode(v: &Value) -> Option<Material> {
     Some(Material {
         title: v["title"].as_str()?.into(),
         url: v["url"].as_str()?.into(),
@@ -161,7 +160,16 @@ pub(super) fn load_or_freeze(
         },
         created_at: crate::now(),
     };
-    saved.set_materials(&context.materials);
+    super::candidates::store(app, scope, purpose, &context.materials)?;
+    // Discovery summaries live in the paged pool; only read sources enter the
+    // working evidence set. The model may select any candidate with read_source.
+    saved.set_materials(
+        &context
+            .materials
+            .into_iter()
+            .filter(|m| m.fulltext)
+            .collect::<Vec<_>>(),
+    );
     persist(app, scope, purpose, &saved)?;
     Ok(saved)
 }

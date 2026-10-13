@@ -125,9 +125,7 @@ async fn cached_original_text_pages_without_another_call_and_retains_known_publi
     );
     let text = format!("{}{}", "A".repeat(18000), "B".repeat(1200));
     // A full inventory must still permit reading an admitted paper and retain its known date.
-    let mut inventory: Vec<_> = (0..super::super::tools::MATERIAL_LIMIT)
-        .map(material)
-        .collect();
+    let mut inventory: Vec<_> = (0..251).map(material).collect();
     inventory[0].url = "https://arxiv.org/abs/2601.12345".into();
     let original_id = inventory[0].evidence()["id"].clone();
     saved.set_materials(&inventory);
@@ -147,14 +145,14 @@ async fn cached_original_text_pages_without_another_call_and_retains_known_publi
     assert!(response["nextOffset"].is_null());
     assert_eq!(saved.materials()[0].text.len(), 19200);
     assert!(saved.materials()[0].fulltext);
-    assert_eq!(saved.materials().len(), super::super::tools::MATERIAL_LIMIT);
+    assert_eq!(saved.materials().len(), 251);
     drop(app);
     std::fs::remove_dir_all(dir).unwrap();
 }
 #[tokio::test]
-async fn paper_discovery_reserves_direct_reads_and_capacity_rejection_precedes_dispatch() {
+async fn paper_discovery_stays_in_candidate_pool_until_selected() {
     let (app, scope, mut saved, dir) = fixture();
-    saved.set_materials(&(0..31).map(material).collect::<Vec<_>>());
+    saved.set_materials(&(0..80).map(material).collect::<Vec<_>>());
     let args = json!({"action":"library"});
     let key = crate::hash(
         alphaxiv::request(&args)
@@ -164,38 +162,16 @@ async fn paper_discovery_reserves_direct_reads_and_capacity_rejection_precedes_d
             .as_bytes(),
     );
     saved.context["paperCalls"] = json!({key:{"status":"complete","tool":"list_library","value":{"sources":[
-        {"url":"https://arxiv.org/abs/2601.12376","title":"Last discovery","publishedAt":"2026-01-11"},
-        {"url":"https://arxiv.org/abs/2601.12377","title":"Reserved slot must stay free"},
-        {"url":"https://arxiv.org/abs/2601.12345","title":"Existing paper"}
+        {"url":"https://arxiv.org/abs/2601.12376","title":"A discovery","publishedAt":"2026-01-11"},
+        {"url":"https://arxiv.org/abs/2601.12377","title":"Another discovery"}
     ]}}});
     let response = execute(&app, &scope, "test", &mut saved, &args)
         .await
         .unwrap();
-    assert_eq!(response["inventoryCount"], 32);
+    assert_eq!(response["totalCandidates"], 2);
     assert_eq!(response["sources"].as_array().unwrap().len(), 2);
-    assert!(response["inventoryWarning"].is_string());
-    assert_eq!(
-        saved.materials()[31].published.as_deref(),
-        Some("2026-01-11")
-    );
-    saved.set_materials(
-        &(0..super::super::tools::MATERIAL_LIMIT)
-            .map(material)
-            .collect::<Vec<_>>(),
-    );
-    let calls = saved.context["paperCalls"].clone();
-    let error = execute(
-        &app,
-        &scope,
-        "test",
-        &mut saved,
-        &json!({"action":"read","url":"https://arxiv.org/abs/2601.99999"}),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(error.code, "upstream");
-    assert_eq!(saved.context["paperCalls"], calls);
-    assert_eq!(saved.materials().len(), super::super::tools::MATERIAL_LIMIT);
+    assert_eq!(saved.materials().len(), 80);
+    assert!(response["sources"][0]["candidateOnly"].as_bool().unwrap());
     drop(app);
     std::fs::remove_dir_all(dir).unwrap();
 }

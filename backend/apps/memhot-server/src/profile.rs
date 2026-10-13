@@ -11,6 +11,8 @@ pub fn default_profile() -> Value {
 }
 pub fn public_profile(p: &Value) -> Value {
     let mut p = p.clone();
+    // Legacy feed URLs can embed credentials; canonical subscriptions expose only a host.
+    p["feeds"] = json!([]);
     for kind in ["text", "asr"] {
         if let Some(config) = p.get_mut("models").and_then(|m| m.get_mut(kind)) {
             let configured = super::models::configured(config);
@@ -31,13 +33,20 @@ pub fn public_profile(p: &Value) -> Value {
     p
 }
 pub async fn get(State(app): State<App>, User(user): User) -> Result<Json<Value>> {
-    Ok(Json(public_profile(&app.store.profile(&user)?)))
+    Ok(Json(snapshot(&app, &user)?))
+}
+pub fn snapshot(app: &App, user: &str) -> Result<Value> {
+    crate::subscription_store::migrate_legacy(app, user)?;
+    let mut p = public_profile(&app.store.profile(user)?);
+    p["feeds"] = json!(crate::subscription_store::legacy_feeds(app, user)?);
+    Ok(p)
 }
 pub async fn update(
     State(app): State<App>,
     User(user): User,
     Json(patch): Json<Value>,
 ) -> Result<Json<Value>> {
+    crate::subscription_store::migrate_legacy(&app, &user)?;
     let mut p = app.store.profile(&user)?;
     let original = p.to_string();
     let map = patch
@@ -139,8 +148,11 @@ pub async fn update(
                     .as_object()
                     .ok_or_else(|| Error::bad("搜索设置无效"))?;
                 if let Some(provider) = s.get("provider") {
-                    if !matches!(provider.as_str(), Some("public" | "tavily")) {
+                    if !matches!(provider.as_str(), Some("public" | "tavily" | "exa")) {
                         return Err(Error::bad("搜索服务无效"));
+                    }
+                    if &p["search"]["provider"] != provider && !s.contains_key("apiKey") {
+                        p["search"].as_object_mut().map(|v| v.remove("apiKey"));
                     }
                     p["search"]["provider"] = provider.clone();
                 }
@@ -154,18 +166,8 @@ pub async fn update(
             _ => return Err(Error::bad("未知设置字段")),
         }
     }
-    let changed = app.store.conn()?.execute(
-        "UPDATE users SET profile=?,name=? WHERE id=? AND profile=?",
-        rusqlite::params![
-            p.to_string(),
-            p["name"].as_str().unwrap_or("我"),
-            user,
-            original
-        ],
-    )?;
-    if changed == 0 {
-        return Err(crate::topics::conflict());
-    }
+    p["feeds"] = json!([]);
+    crate::subscription_store::update_profile(&app, &user, &original, &p, map.get("feeds"))?;
     if map.contains_key("models")
         && (crate::models::configured(&p["models"]["text"])
             || crate::models::configured(&p["models"]["asr"]))
@@ -193,7 +195,7 @@ pub async fn update(
         }
     }
 
-    Ok(Json(public_profile(&p)))
+    Ok(Json(snapshot(&app, &user)?))
 }
 fn validate_model(kind: &str, v: &Value) -> Result<()> {
     if let Some(url) = v["baseUrl"].as_str().filter(|s| !s.is_empty()) {

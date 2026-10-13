@@ -76,7 +76,7 @@ fn decode(value: &Value) -> Result<(Vec<Material>, Vec<String>)> {
         .as_array()
         .ok_or_else(|| Error::upstream("invalid_response", "免费搜索缺少结果列表"))?;
     let mut materials = Vec::new();
-    for result in results.iter().take(12) {
+    for result in results.iter() {
         let Some(raw) = result["url"].as_str() else {
             continue;
         };

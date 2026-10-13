@@ -5,6 +5,7 @@ Run as root. Use a private receipt directory (0700). The durable SQLite hold
 tables are authoritative for jobs inserted or retried after the receipt is saved.
 The old server resumes claiming automatically when the hold deadline expires.
 """
+from contextlib import closing
 import argparse
 import json
 import os
@@ -68,7 +69,7 @@ def read_receipt(path):
 
 
 def status(database):
-    with connect(database) as conn:
+    with closing(connect(database)) as conn:
         queries = {
             "runningJobs": "SELECT count(*) FROM jobs WHERE status='running'",
             "queuedJobs": "SELECT count(*) FROM jobs WHERE status='queued'",
@@ -100,7 +101,7 @@ def hold(database, receipt, ttl):
         raise ValueError("receipt directory must be private and owned by the current user (0700)")
     created = int(time.time())
     value = {"version": 1, "holdId": str(uuid.uuid4()), "database": str(Path(database).resolve(strict=True)), "created": created, "deadline": created + ttl, "state": "prepared"}
-    with connect(database) as conn:
+    with closing(connect(database)) as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
             conn.execute("CREATE TABLE IF NOT EXISTS memhot_maintenance_queue_hold(id TEXT PRIMARY KEY,created INTEGER NOT NULL,deadline INTEGER NOT NULL)")
@@ -135,7 +136,7 @@ def release(database, receipt):
     value = read_receipt(receipt)
     if value.get("database") != str(Path(database).resolve(strict=True)):
         raise ValueError("receipt belongs to a different database")
-    with connect(database) as conn:
+    with closing(connect(database)) as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
             active = conn.execute("SELECT id FROM memhot_maintenance_queue_hold").fetchone()

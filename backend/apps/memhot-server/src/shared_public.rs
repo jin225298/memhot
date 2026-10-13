@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::time::Duration as StdDuration;
-pub const PIPELINE_VERSION: &str = "public-agent-editorial-v8-selection";
+pub const PIPELINE_VERSION: &str = "public-agent-editorial-v9-candidates";
 #[path = "shared_public_catalog.rs"]
 mod catalog_data;
 #[path = "shared_public_history.rs"]

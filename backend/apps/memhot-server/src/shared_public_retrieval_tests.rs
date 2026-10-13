@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashSet;
 fn item(url: &str) -> Material {
     Material {
         title: "Robot release".into(),
@@ -28,7 +29,7 @@ fn aihot_duplicates_keep_stronger_official_feed_metadata_and_attribution() {
         } else {
             vec![vec![discovery], vec![official]]
         };
-        let mut candidates = candidate_reserve(groups, 1);
+        let mut candidates = candidate_reserve(groups);
         let candidate = candidates.pop().unwrap();
         assert!(candidate.abstract_allowed);
         assert!(!candidate.material.text.is_empty());
@@ -47,14 +48,16 @@ fn aihot_duplicates_keep_stronger_official_feed_metadata_and_attribution() {
 #[test]
 fn search_snippets_and_third_party_feed_quotes_are_never_evidence() {
     let searched = search_candidate(item("https://example.org/story"));
-    assert!(searched.material.text.is_empty());
+    assert!(!searched.material.text.is_empty());
+    assert!(searched.material.is_search_snippet());
     assert!(searched.material.published.is_none());
     let third_party = feed_candidate(
         item("https://other.org/story"),
         "https://openai.com/news/rss.xml",
     );
     assert!(!third_party.abstract_allowed);
-    assert!(third_party.material.text.is_empty());
+    assert!(!third_party.material.text.is_empty());
+    assert!(third_party.material.is_search_snippet());
     assert!(third_party.material.published.is_none());
     let official = feed_candidate(
         item("https://openai.com/story"),
@@ -64,23 +67,20 @@ fn search_snippets_and_third_party_feed_quotes_are_never_evidence() {
     assert!(!official.material.text.is_empty());
 }
 #[test]
-fn balanced_candidates_do_not_let_a_prolific_feed_fill_the_edition() {
-    let groups = ["a.org", "b.org", "c.org", "d.org"]
-        .iter()
-        .map(|host| {
-            (0..10)
-                .map(|i| search_candidate(item(&format!("https://{host}/{i}"))))
-                .collect()
-        })
+fn reserve_preserves_more_than_forty_eight_from_one_publisher_and_deduplicates() {
+    let mut candidates: Vec<_> = (0..251)
+        .map(|i| search_candidate(item(&format!("https://a.org/{i}"))))
         .collect();
-    let out = balanced(groups, 12);
-    assert_eq!(out.len(), 8);
-    assert_eq!(
-        out.iter()
-            .filter(|c| c.material.url.contains("a.org"))
-            .count(),
-        2
-    );
+    candidates.push(search_candidate(item(
+        "https://a.org/250?utm_source=duplicate",
+    )));
+    candidates.push(search_candidate(item("http://127.0.0.1/private")));
+    let out = candidate_reserve(vec![candidates]);
+    assert_eq!(out.len(), 251);
+    assert!(out.iter().all(|c| c.material.url.contains("a.org")));
+    assert!(out
+        .iter()
+        .all(|c| c.material.is_search_snippet() && !c.material.fulltext));
 }
 #[test]
 fn catalog_has_multiple_source_layers_and_filters_unrelated_robotics_items() {
@@ -107,7 +107,7 @@ fn reserve_keeps_replacements_and_search_results_require_topic_relevance() {
     let candidates = (0..8)
         .map(|i| search_candidate(item(&format!("https://a.org/{i}"))))
         .collect();
-    assert_eq!(candidate_reserve(vec![candidates], 6).len(), 6);
+    assert_eq!(candidate_reserve(vec![candidates]).len(), 8);
     let mut unrelated = item("https://arxiv.org/abs/1234.5678");
     unrelated.title = "The Haagerup VOA at c=8".into();
     unrelated.text = "Vertex operator algebras and mathematical representation theory".into();
@@ -121,4 +121,104 @@ fn reserve_keeps_replacements_and_search_results_require_topic_relevance() {
         &catalog_data::CATALOG[0],
         &unrelated
     ));
+}
+
+#[tokio::test]
+async fn prefetch_success_budget_does_not_drop_unread_same_publisher_candidates() {
+    let candidates = (0..150)
+        .map(|i| search_candidate(item(&format!("https://a.org/{i}"))))
+        .collect();
+    let (materials, _, _) = prefetch(
+        candidates,
+        Duration::from_secs(90),
+        |candidate| async move {
+            let mut m = candidate.material;
+            m.fulltext = true;
+            m.publication_source = "original_page_metadata";
+            m.published = Some(Utc::now().to_rfc3339());
+            (m, None, None)
+        },
+    )
+    .await;
+    assert_eq!(materials.len(), 150);
+    assert_eq!(materials.iter().filter(|m| m.fulltext).count(), 24);
+    assert_eq!(
+        materials.iter().filter(|m| m.is_search_snippet()).count(),
+        126
+    );
+    assert!(materials
+        .iter()
+        .filter(|m| !m.fulltext)
+        .all(|m| m.published.is_none()));
+}
+#[tokio::test]
+async fn failed_reads_retain_all_candidates_but_never_admit_search_quotes() {
+    let candidates = (0..75)
+        .map(|i| search_candidate(item(&format!("https://a.org/{i}"))))
+        .collect();
+    let (mut materials, _, notes) = prefetch(
+        candidates,
+        Duration::from_secs(90),
+        |candidate| async move {
+            (
+                candidate.material,
+                None,
+                Some("Original unavailable".into()),
+            )
+        },
+    )
+    .await;
+    assert_eq!(materials.len(), 75);
+    assert_eq!(notes.len(), 75);
+    assert!(materials
+        .iter()
+        .all(|m| m.is_search_snippet() && !m.fulltext));
+    assert_eq!(
+        freshness::select(&mut materials, &HashSet::new(), Utc::now()),
+        75
+    );
+    assert!(materials.is_empty());
+}
+#[tokio::test(start_paused = true)]
+async fn expired_prefetch_budget_keeps_inflight_and_unstarted_candidates() {
+    let candidates = (0..75)
+        .map(|i| search_candidate(item(&format!("https://a.org/{i}"))))
+        .collect();
+    let (materials, _, notes) =
+        prefetch(candidates, Duration::from_secs(2), |candidate| async move {
+            std::future::pending::<()>().await;
+            (candidate.material, None, None)
+        })
+        .await;
+    assert_eq!(materials.len(), 75);
+    assert!(materials
+        .iter()
+        .all(|m| m.is_search_snippet() && !m.fulltext));
+    assert_eq!(notes.len(), 1);
+}
+#[tokio::test]
+async fn old_original_read_never_reverts_to_a_newer_discovery_date() {
+    let candidates = vec![search_candidate(item("https://a.org/history"))];
+    let (mut materials, _, _) = prefetch(
+        candidates,
+        Duration::from_secs(90),
+        |candidate| async move {
+            let mut m = candidate.material;
+            m.fulltext = true;
+            m.published = Some("2020-01-01T00:00:00Z".into());
+            m.publication_source = "original_page_metadata";
+            (m, None, None)
+        },
+    )
+    .await;
+    assert!(materials[0].fulltext);
+    assert_eq!(
+        materials[0].published.as_deref(),
+        Some("2020-01-01T00:00:00Z")
+    );
+    assert_eq!(materials[0].publication_source, "original_page_metadata");
+    assert_eq!(
+        freshness::select(&mut materials, &HashSet::new(), Utc::now()),
+        1
+    );
 }

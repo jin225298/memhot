@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "researchedOn": "2026-10-13",
+  "purpose": "Research inventory, not production configuration. Candidates are not enabled subscriptions.",
+  "verificationLegend": {
+    "feed_checked": "One ordinary HTTP request returned parseable feed/API entries; does not establish ongoing reliability or redistribution rights.",
+    "docs_checked": "Publisher or maintainer documentation/code checked; live ingestion has not been verified.",
+    "index_checked": "Public publication index checked; an extraction adapter is still needed.",
+    "probe_failed": "A live probe did not return usable feed content. Do not enable without further validation."
+  },
+  "sources": [
+    {
+      "name": "国家统计局最新发布", "domains": ["business", "economics"], "kind": "web_list",
+      "url": "https://www.stats.gov.cn/sj/zxfb/", "verification": "index_checked",
+      "role": "primary_data", "access": "public", "cadence": "publication_schedule",
+      "notes": "Separate original release time from database refresh time. Low-frequency indicators are background evidence, not daily breaking news."
+    },
+    {
+      "name": "Federal Reserve press releases", "domains": ["investment", "economics"], "kind": "rss",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml", "verification": "feed_checked",
+      "evidence": "https://www.federalreserve.gov/feeds/feeds.htm", "observedItems": 20,
+      "role": "primary_release", "access": "public", "cadence": "event_driven"
+    },
+    {
+      "name": "SEC EDGAR submissions and XBRL", "domains": ["investment", "business"], "kind": "api",
+      "url": "https://data.sec.gov/", "verification": "docs_checked",
+      "evidence": "https://www.sec.gov/search-filings/edgar-application-programming-interfaces",
+      "role": "primary_filing", "access": "public_no_key", "cadence": "filing_driven",
+      "notes": "Select issuer CIKs; preserve filing accession, form type, fiscal period and revisions. API access must follow SEC fair-access requirements."
+    },
+    {
+      "name": "World Bank indicators", "domains": ["economics", "society"], "kind": "api",
+      "url": "https://api.worldbank.org/v2/indicator", "verification": "docs_checked",
+      "evidence": "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392",
+      "role": "primary_data", "access": "public_no_key", "cadence": "dataset_specific",
+      "notes": "Mostly background or revised historical series; not a daily news feed."
+    },
+    {
+      "name": "36氪文章与快讯", "domains": ["business", "startup", "technology"], "kind": "rss",
+      "url": "https://36kr.com/feed-article", "alternative": "https://36kr.com/feed-newsflash",
+      "evidence": "https://36kr.com/rss-center", "verification": "probe_failed",
+      "role": "reporting", "access": "public_feed_documented",
+      "notes": "Both documented feeds returned content that failed XML parsing in this probe. Do not label these working feeds solely from the official directory."
+    },
+    {
+      "name": "Axios Markets / Macro / Closer / Pro Rata", "domains": ["business", "investment", "economics"], "kind": "newsletter",
+      "url": "https://pages.axios.com/", "verification": "docs_checked",
+      "role": "reporting", "access": "newsletter_subscription", "cadence": "edition_specific",
+      "notes": "User-directed newsletter intake is distinct from a publisher-wide content license; parse actual received messages and original links."
+    },
+    {
+      "name": "财新每日新闻电邮", "domains": ["business", "investment", "economics"], "kind": "newsletter",
+      "url": "https://cchuodong.caixin.com/market/email/pc/subscribe.html", "verification": "docs_checked",
+      "role": "reporting", "access": "free_newsletter_signup", "cadence": "china_workdays",
+      "notes": "Free email access does not include paid article access. Only user-authorized incoming content belongs in private intake."
+    },
+    {
+      "name": "Stratechery", "domains": ["business", "technology", "investment"], "kind": "rss",
+      "url": "https://stratechery.com/feed/", "verification": "feed_checked", "observedItems": 10,
+      "evidence": "https://stratechery.com/about/", "role": "analysis", "access": "free_articles_and_paid_updates",
+      "notes": "Public RSS entries can include paid-edition previews. A feed item is not proof that the full paid article was read."
+    },
+    {
+      "name": "Bits about Money / Patrick McKenzie", "domains": ["finance", "business", "technology"], "kind": "rss",
+      "url": "https://www.bitsaboutmoney.com/archive/rss/", "verification": "feed_checked", "observedItems": 15,
+      "evidence": "https://www.bitsaboutmoney.com/", "role": "analysis", "access": "free_reading",
+      "latestDateObserved": "2026-05-01", "cadence": "irregular",
+      "notes": "Feed discovered from homepage rel=alternate. Working feed but latest observed entry is months old; use as background analysis, not today's news."
+    },
+    {
+      "name": "AdExchanger", "domains": ["business", "advertising", "media"], "kind": "rss",
+      "url": "https://www.adexchanger.com/feed", "verification": "feed_checked", "observedItems": 10,
+      "evidence": "https://www.adexchanger.com/", "role": "vertical_reporting", "access": "public_feed_and_free_newsletter",
+      "latestDateObserved": "2026-10-13", "cadence": "publication_driven",
+      "discoveryEvidence": "https://nathanbarry.com/021-byrne-hobart-build-recurring-revenue-newsletter/",
+      "notes": "Publisher footer links RSS; ordinary HTTP probe returned ten entries. No content:encoded elements observed: do not claim full-text RSS. Distinguish sponsored content and opinion from reporting."
+    },
+    {
+      "name": "The Diff / Byrne Hobart", "domains": ["business", "investment", "technology"], "kind": "newsletter",
+      "url": "https://www.thediff.co/about/", "verification": "docs_checked",
+      "role": "analysis", "access": "free_samples_and_paid_posts",
+      "discoveryEvidence": "https://nathanbarry.com/021-byrne-hobart-build-recurring-revenue-newsletter/",
+      "xProfile": "https://x.com/ByrneHobart",
+      "notes": "Author's X profile and pinned free-issue post were read in the user's browser. Public interview describes discovering material through vertical publications as well as broad reading. This is not yet a verified list of third-party recommendations."
+    },
+    {
+      "name": "Reuters MCP", "domains": ["business", "investment", "world_news"], "kind": "mcp",
+      "url": "https://reutersagency.com/reuters-mcp", "verification": "docs_checked",
+      "role": "reporting", "access": "licensed_subscription_and_credentials",
+      "notes": "Official search/retrieval option with rights metadata. No credential, price quote, purchase or live API test obtained."
+    },
+    {
+      "name": "AP Media API", "domains": ["business", "world_news"], "kind": "api",
+      "url": "https://developer.ap.org/ap-media-api/", "verification": "docs_checked",
+      "evidence": "https://api.ap.org/media/v/swagger/", "role": "reporting", "access": "licensed_content",
+      "notes": "Content search, feed and plan-entitled RSS. Not a free unrestricted content API; no subscription purchased."
+    },
+    {
+      "name": "工信部运行监测协调局", "domains": ["industry", "economics"], "kind": "web_list",
+      "url": "https://www.miit.gov.cn/jgsj/yxj/xxfb/index.html", "verification": "index_checked",
+      "role": "primary_release", "access": "public", "cadence": "monthly_and_event_driven",
+      "notes": "Dynamic listing requires adaptation; verify date and source URL per item."
+    },
+    {
+      "name": "IEA reports", "domains": ["energy", "industry"], "kind": "web_list",
+      "url": "https://www.iea.org/reports", "verification": "index_checked",
+      "role": "research_report", "access": "mixed_public_and_paid", "cadence": "report_specific",
+      "notes": "Check access and reuse terms per report/data product. Separate report context from new daily events."
+    },
+    {
+      "name": "Nielsen Norman Group", "domains": ["design", "product"], "kind": "rss",
+      "url": "https://www.nngroup.com/feed/rss/", "verification": "feed_checked", "observedItems": 20,
+      "role": "expert_analysis", "access": "public_articles",
+      "evidence": "https://www.nngroup.com/contents/terms-and-conditions/",
+      "notes": "Reading access does not grant blanket full-text redistribution or translation rights."
+    },
+    {
+      "name": "Figma blog", "domains": ["design", "product"], "kind": "rss",
+      "url": "https://www.figma.com/blog/feed/atom.xml", "verification": "feed_checked", "observedItems": 757,
+      "role": "publisher_product_and_practice", "access": "public", "cadence": "publication_driven"
+    },
+    {
+      "name": "GitHub project releases", "domains": ["opensource", "robotics"], "kind": "api",
+      "url": "https://api.github.com/repos/ros2/ros2/releases?per_page=1", "verification": "feed_checked", "observedItems": 1,
+      "evidence": "https://docs.github.com/en/rest/releases/releases", "role": "primary_release", "access": "public_with_rate_limits",
+      "notes": "One repository is a sample. Parameterize explicit repositories; tags without GitHub releases are not covered."
+    },
+    {
+      "name": "Hacker News", "domains": ["technology", "product", "startup"], "kind": "api",
+      "url": "https://hacker-news.firebaseio.com/v0/showstories.json", "verification": "docs_checked",
+      "evidence": "https://github.com/HackerNews/API", "role": "discovery_signal", "access": "public_no_key",
+      "notes": "Follow original links; votes and reposts are interest signals, not independent factual confirmation."
+    },
+    {
+      "name": "Open Robotics Discourse", "domains": ["robotics", "opensource"], "kind": "rss",
+      "url": "https://discourse.openrobotics.org/latest.rss", "verification": "feed_checked", "observedItems": 30,
+      "role": "community", "access": "public",
+      "notes": "Distinguish community discussion from official project announcements; select categories and authors."
+    },
+    {
+      "name": "PubMed E-utilities", "domains": ["science", "health"], "kind": "api",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/", "verification": "docs_checked",
+      "evidence": "https://www.ncbi.nlm.nih.gov/books/NBK25497/", "role": "literature_index", "access": "public_with_optional_key",
+      "notes": "Increment by entry date, preserve publication date and PMID, respect API rate limits; indexed metadata is not necessarily accessible full text."
+    },
+    {
+      "name": "arXiv subject RSS", "domains": ["science", "astronomy", "robotics"], "kind": "rss",
+      "url": "https://rss.arxiv.org/rss/astro-ph", "verification": "docs_checked",
+      "evidence": "https://info.arxiv.org/help/rss.html", "role": "preprint", "access": "public",
+      "notes": "Sibling cs.RO endpoint returned valid RSS with zero entries in this pass. Empty current issue is distinct from fetch failure; obey arXiv API/feed limits."
+    },
+    {
+      "name": "NASA news releases", "domains": ["astronomy", "space"], "kind": "rss",
+      "url": "https://www.nasa.gov/news-release/feed/", "verification": "feed_checked", "observedItems": 10,
+      "evidence": "https://www.nasa.gov/rss-feeds/", "role": "primary_release", "access": "public"
+    },
+    {
+      "name": "ESA Space Science", "domains": ["astronomy", "space"], "kind": "rss",
+      "url": "https://www.esa.int/rssfeed/Our_Activities/Space_Science", "verification": "feed_checked", "observedItems": 15,
+      "evidence": "https://www.esa.int/Services/RSS_Feeds", "role": "primary_release", "access": "public"
+    }
+  ],
+  "integrationFindings": {
+    "memhotCurrentGap": {
+      "evidence": "backend/apps/memhot-server/src/discovery.rs:205",
+      "observed": "Each discovery call fetches at most three custom feeds, selected by a UTC-day rotation. This is not independent continuous collection of every subscribed source.",
+      "impact": "Adding more sources alone does not guarantee timely coverage; repeated requests on the same day select the same subset."
+    },
+    "sourceDiscovery": {
+      "flow": ["publisher RSS/API discovery", "public author recommendations and article citations", "vertical publication verification", "preview recent entries", "classify news versus background", "observe collection health before enabling by default"],
+      "authorEvidence": "https://nathanbarry.com/021-byrne-hobart-build-recurring-revenue-newsletter/",
+      "authorEvidenceDate": "2021-01-11",
+      "notes": "Byrne Hobart describes combining broad business coverage with specialist publications, including Semiconductor Digest and AdExchanger. This is a historical first-person interview, not a newly verified X recommendation thread. X profile posts were readable, but search results and subsequent browser control remained unreliable."
+    },
+    "aihot": {
+      "evidence": "https://github.com/KKKKhazix/AIHOT/blob/main/docs/sources.md",
+      "sourceKinds": ["rss", "web_list", "json_list", "x_search", "mp_account", "external"],
+      "paidAdapters": ["SocialData for X", "Dajiala for WeChat", "optional Jina for page rendering"],
+      "patternsToReuse": ["preview before subscribing", "per-source cursor and schedule", "failure does not advance successful cursor", "adaptive backoff", "initial backfill kept out of today's news", "event grouping preserves new developments"]
+    },
+    "rsshub": {
+      "evidence": "https://github.com/DIYgod/RSSHub", "reviewedCommit": "adb82c30b251d1645884d8b5c1c9b6ea7b6e43ee",
+      "candidateRoutes": ["/bilibili/user/video/:uid", "/bilibili/user/dynamic/:uid", "/zhihu/zhuanlan/:id", "/zhihu/posts/:usertype/:id", "/zhihu/people/answers/:id"],
+      "status": "source code reviewed; target-account ingestion not deployed or tested",
+      "notes": ["Feed descriptions are not full video transcripts.", "Login, rate-limit and site-change failures must be visible.", "Do not pool users' cookies in a shared instance.", "A current-page feed does not guarantee complete historical backfill."]
+    },
+    "opml": {
+      "evidence": "https://docs.feedly.com/article/52-how-can-i-export-my-sources-and-feeds-through-opml",
+      "scope": "Subscription list/folders; not a transfer of credentials, paid rights, all article history or reading state.",
+      "flow": ["upload", "preview folders and feeds", "deduplicate", "select", "import"]
+    },
+    "proposedSubscriptionExperience": {
+      "status": "design_only_not_implemented",
+      "location": "个人偏好 → 我的订阅",
+      "entryPoints": ["paste website or author/channel link", "import OPML folders", "share one article", "forward newsletters to a private revocable address", "connect a user-owned reader or WeRSS instance"],
+      "preview": ["source name", "latest three available items", "last publication date", "content coverage: title/summary/full text/subtitles", "category and digest inclusion"],
+      "health": ["last successful collection", "new item count", "needs login", "temporarily unavailable", "manual refresh"],
+      "notes": "One-article import must not silently create a recurring subscription. OPML migrates subscriptions, not credentials or full reading history."
+    },
+    "proposedCollectionArchitecture": {
+      "status": "design_only_not_implemented",
+      "flow": ["scheduled per-source jobs", "bounded fetch/parse", "article identity deduplication", "date and content validation", "event clustering", "tenant-aware retrieval", "Pi research and edition generation"],
+      "correctness": ["advance cursor only after durable success", "coalesce duplicate manual refresh jobs", "global and per-host rate limits", "bounded retries with backoff", "track original publication separately from discovery", "keep initial historical backfill out of current-news editions", "retain differing accounts and new developments within an event"],
+      "shared": "Verified public sources may share collection and permitted content storage; subscription and reading state remain per user.",
+      "private": "Credentialed feeds, forwarded newsletters, private reader contents and personal research stay tenant-scoped. Do not infer public visibility merely from an unauthenticated URL; bearer tokens may be embedded in URLs.",
+      "cost": "Routine scheduled HTTP collection does not require a model. Pi consumes the indexed materials and searches for gaps with a per-job budget.",
+      "freeAndPaid": "The free baseline includes curated public sources, citations and user feed imports. Paid upgrades can fund deeper research, higher frequency and licensed data; freshness and factual-quality requirements remain the same."
+    },
+    "werss": {
+      "evidence": "https://github.com/letuswerss/werss/blob/0862aab90d7aea91e776bcdab4b495a727f12051/docs/ui/api-keys.md",
+      "scope": "User-owned dedicated instance only until isolation is independently established.",
+      "notes": "Existing key permission strings do not establish enforced read-only or cross-user isolation. Keep WeChat sessions outside Memhot and restrict connector read paths."
+    },
+    "search": {
+      "freeBase": ["collected public-source index", "self-hosted SearXNG", "official subject APIs"],
+      "optionalProviders": ["Tavily", "Exa", "licensed news MCP/API", "approved social-data provider"],
+      "evidence": ["https://docs.searxng.org/dev/search_api.html", "https://docs.tavily.com/documentation/api-reference/endpoint/search", "https://exa.ai/docs/reference/search"],
+      "requiredBoundaries": ["explicit per-user and per-job budget", "time/language/domain capability metadata", "bounded concurrency and cancellation", "source dates verified separately from crawl dates", "private subscription searches remain tenant-scoped"]
+    }
+  }
+}

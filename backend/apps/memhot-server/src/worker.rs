@@ -10,6 +10,9 @@ use serde_json::json;
 use std::time::Duration;
 
 pub async fn run(app: App) {
+    tokio::join!(run_jobs(app.clone()), crate::subscription_worker::run(app));
+}
+async fn run_jobs(app: App) {
     let mut tick = tokio::time::interval(Duration::from_secs(2));
     let mut maintenance = tokio::time::interval(Duration::from_secs(60));
     let mut running = tokio::task::JoinSet::new();
@@ -128,7 +131,7 @@ pub fn schedule_at(app: &App, at: chrono::DateTime<chrono::Utc>) -> Result<()> {
             .iter()
             .any(|c| c["status"] == "active" && c["type"] == "interest");
         if !p["interests"].as_array().is_none_or(Vec::is_empty)
-            || !p["feeds"].as_array().is_none_or(Vec::is_empty)
+            || crate::subscription_store::has_enabled(app, &user)?
             || has_inferred_interest
         {
             app.store.queue(

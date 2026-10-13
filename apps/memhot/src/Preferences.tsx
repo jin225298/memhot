@@ -19,7 +19,6 @@ export function Preferences({
 }) {
   const [draft, setDraft] = useState(profile);
   const [interests, setInterests] = useState(profile.interests.join("，"));
-  const [feeds, setFeeds] = useState((profile.feeds || []).join("\n"));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,10 +38,6 @@ export function Preferences({
                   .filter(Boolean),
               ),
             ],
-            feeds: feeds
-              .split("\n")
-              .map((s) => s.trim())
-              .filter(Boolean),
           }
         : section === "identity"
           ? { name: draft.name.trim() }
@@ -126,19 +121,6 @@ export function Preferences({
               人工智能、机器人、天文学和物理学提供统一日报；更具体的兴趣会单独整理。
             </p>
           </section>
-          <details className="feed-preferences">
-            <summary>添加自己的订阅来源</summary>
-            <label>
-              RSS 地址
-              <textarea
-                value={feeds}
-                onChange={(e) => setFeeds(e.target.value)}
-                rows={3}
-                maxLength={6000}
-                placeholder="每行一个公开 RSS 地址，最多 20 个"
-              />
-            </label>
-          </details>
         </>
       )}
       {section === "schedule" && (

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.angelkang.memhot",
+  "version": "0.3.5",
+  "versionCode": 1008,
+  "minSdk": 24,
+  "abi": "arm64-v8a",
+  "url": "https://memhot.angelkang.com/downloads/memhot-0.3.5-arm64.apk",
+  "size": 44028570,
+  "sha256": "48d368b6062c9c6d3895a257203f425af3d9646385f767920d934f1e8f541736",
+  "notes": [
+    "个人偏好新增“我的订阅”，可添加网站或 RSS、导入订阅列表。",
+    "查看各来源的更新状态和文章，支持立即更新、暂停和取消订阅。",
+    "搜索资料按页保留，模型结合偏好选读原文，不再只接收前几条结果。"
+  ],
+  "publishedAt": "2026-10-13T14:23:35Z"
+}

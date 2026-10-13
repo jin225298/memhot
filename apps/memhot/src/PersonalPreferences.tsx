@@ -7,10 +7,12 @@ import { Cognition } from "./Cognition";
 import type { Profile } from "./types";
 import { Icon } from "./Icon";
 import { Updates } from "./AppUpdates";
+import { Subscriptions } from "./Subscriptions";
 
 export type PreferenceSection =
   | "overview"
   | "interests"
+  | "subscriptions"
   | "cognition-list"
   | "cognition"
   | "schedule"
@@ -44,8 +46,9 @@ export function PersonalPreferences({
       title: "关注领域",
       detail: profile.interests.length
         ? profile.interests.join("、")
-        : "选择兴趣和订阅来源",
+        : "选择想持续了解的领域",
     },
+    { id: "subscriptions", title: "我的订阅", detail: "添加常读的来源，导入订阅，查看更新" },
     {
       id: "cognition",
       title: "对我的了解",
@@ -150,6 +153,7 @@ export function PersonalPreferences({
               onSaved={onSaved}
             />
           )}
+          {section === "subscriptions" && <Subscriptions api={api} />}
           {section === "account" && (
             <>
               <Account api={api} />

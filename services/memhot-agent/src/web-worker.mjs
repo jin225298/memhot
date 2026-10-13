@@ -139,7 +139,7 @@ export async function runWeb(start, channel, signal) {
     const { createStandaloneWebToolCore } = await jiti.import(import.meta.resolve('pi-web-access/web-tool-core.ts'));
     const core = createStandaloneWebToolCore();
     const result = start.action === 'search'
-      ? await core.webSearch({ queries: [start.query], provider: start.provider, numResults: 10, includeContent: false }, signal)
+      ? await core.webSearch({ queries: [start.query], provider: start.provider, numResults: 20, includeContent: false }, signal)
       : await core.fetchContent({ url: start.url, mode: 'readable' }, signal);
     if (transportFailure) throw transportFailure;
     if (channel.error) throw channel.error;
@@ -155,7 +155,6 @@ export async function runWeb(start, channel, signal) {
           sources.push({ title: String(item.title).slice(0, 1024), url: httpUrl(item.url).toString(),
             text: String(item.snippet).slice(0, 2000), fulltext: false });
         } catch { /* Unusable result URLs cannot become evidence. */ }
-        if (sources.length >= 10) break;
       }
     } else {
       if (!Array.isArray(data.urls) || data.urls.length !== 1 || data.urls[0].error || !string(data.urls[0].content, 2 * 1024 * 1024)) {

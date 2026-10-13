@@ -24,14 +24,6 @@ pub(super) async fn execute(
     }
     let request = alphaxiv::request(args)?;
     let mut materials = saved.materials();
-    if args["action"] == "read" {
-        let url = alphaxiv::paper_url(args["url"].as_str().unwrap_or(""))?;
-        if materials.len() >= super::tools::MATERIAL_LIMIT
-            && paper_index(&materials, &url).is_none()
-        {
-            return Err(super::tools::inventory_full());
-        }
-    }
     let key = crate::hash(request.start().to_string().as_bytes());
     if !saved.context["paperCalls"].is_object() {
         saved.context["paperCalls"] = json!({})
@@ -79,9 +71,6 @@ pub(super) async fn execute(
             return Err(Error::upstream("upstream", "论文响应没有原文标记"));
         }
         let index = paper_index(&materials, &url);
-        if index.is_none() && materials.len() >= super::tools::MATERIAL_LIMIT {
-            return Err(super::tools::inventory_full());
-        }
         let mut material = index.map(|i| materials[i].clone()).unwrap_or(Material {
             title: clip(text.lines().next().unwrap_or("论文"), 200),
             url: url.clone(),
@@ -122,7 +111,7 @@ pub(super) async fn execute(
         .as_array()
         .ok_or_else(|| Error::upstream("upstream", "论文列表格式无效"))?;
     let mut discoveries = vec![];
-    for v in found.iter().take(20) {
+    for v in found.iter() {
         let Ok(url) = alphaxiv::paper_url(v["url"].as_str().unwrap_or("")) else {
             continue;
         };
@@ -144,11 +133,11 @@ pub(super) async fn execute(
         };
         discoveries.push(material);
     }
-    let (sources, leads) = super::tools::admit_discoveries(&mut materials, discoveries, true);
-    saved.set_materials(&materials);
-    Ok(
-        json!({"sources":sources,"leads":leads,"folders":value["folders"],"warning":value["warning"],"private":true,"inventoryCount":materials.len(),"inventoryWarning":super::tools::inventory_warning(&materials)}),
-    )
+    let mut result = super::candidates::store_and_page(app, scope, purpose, &discoveries)?;
+    result["folders"] = value["folders"].clone();
+    result["warning"] = value["warning"].clone();
+    result["private"] = json!(true);
+    Ok(result)
 }
 
 #[cfg(test)]

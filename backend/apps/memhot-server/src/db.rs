@@ -48,6 +48,7 @@ PRAGMA user_version=1;")?;
         }
         crate::accounts::migrate(&connection)?;
         crate::shared_public::migrate(&connection)?;
+        crate::subscription_store::migrate(&connection)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

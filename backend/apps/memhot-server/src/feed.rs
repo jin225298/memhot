@@ -179,7 +179,7 @@ pub fn parse_from(xml: &str, feed_url: Option<&str>) -> Vec<Material> {
                             });
                         }
                     }
-                    if out.len() >= 20 {
+                    if out.len() >= 200 {
                         break;
                     }
                 }

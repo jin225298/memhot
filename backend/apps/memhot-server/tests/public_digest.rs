@@ -223,10 +223,11 @@ async fn fanout_covers_all_catalog_topics_and_keeps_custom_interest_and_feeds_pr
         200
     );
     let plan = digest::interests(app, &uid).unwrap();
-    assert_eq!(
-        plan.feeds,
-        vec![json!("https://example.com/private-feed.xml")]
-    );
+    assert!(plan.subscriptions);
+    let subscriptions = memhot_server::subscription_store::list(app, &uid).unwrap();
+    assert_eq!(subscriptions.len(), 1);
+    assert_eq!(subscriptions[0]["shared"], false);
+    assert!(subscriptions[0].get("url").is_none());
     assert_eq!(plan.public.len(), 4);
     assert_eq!(plan.private.len(), 2);
     assert!(!plan.private.iter().any(|s| s.contains("未确认")));
