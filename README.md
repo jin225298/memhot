@@ -2,7 +2,9 @@
 
 从日常对话中留下想法，第二天收到相关的研究材料和兴趣日报。
 
-这是独立的 Memhot 仓库，包含应用、服务端、研究运行时和部署工具。当前应用版本为 **0.3.3**，服务端版本为 **0.3.8**。Android 已有交付；其他平台尚未完成录音能力适配。
+这是独立的 Memhot 仓库，包含应用、服务端、研究运行时和部署工具。当前应用版本为 **0.3.5**，服务端版本为 **0.3.10**。Android 已有交付；其他平台尚未完成录音能力适配。
+
+在应用内的“个人偏好 → 应用更新”升级，或下载 [Android 0.3.5 安装包](https://memhot.angelkang.com/downloads/memhot-0.3.5-arm64.apk)。
 
 ## 项目结构
 
@@ -55,7 +57,7 @@ cargo test -p memhot-server -p model-runtime -p asr-service \
 ## 文档
 
 - [产品与使用说明](docs/memhot/README.md)
-- [最新服务端验收与已知限制](docs/memhot/acceptance-0.3.8.md)
+- [最新服务端验收与已知限制](docs/memhot/acceptance-sources-20261013.md)
 - [架构](docs/memhot/architecture.md)
 - [部署与回滚](ops/memhot/README.md)
 - [独立仓库的提取范围](docs/memhot/standalone-repository.md)
