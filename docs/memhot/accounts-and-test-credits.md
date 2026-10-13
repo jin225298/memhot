@@ -8,11 +8,14 @@
 
 ```sh
 sudo -u memhot env MEMHOT_DATA_DIR=/var/lib/memhot /opt/memhot/current/memhot-server invite USER_EMAIL
+sudo -u memhot env MEMHOT_DATA_DIR=/var/lib/memhot /opt/memhot/current/memhot-server invite-credits USER_EMAIL 1000
 sudo -u memhot env MEMHOT_DATA_DIR=/var/lib/memhot /opt/memhot/current/memhot-server invite OWNER_EMAIL --user EXISTING_USER_ID
 sudo -u memhot env MEMHOT_DATA_DIR=/var/lib/memhot /opt/memhot/current/memhot-server adminreset USER_EMAIL
 ```
 
 邀请默认有效7天，可用 `--days N` 指定1至30天。重新邀请相同邮箱或同一待认领用户会撤销先前未使用邀请。重置码有效15分钟，生成新码后旧码失效；交付前由管理员确认账号主人。命令明确说明没有发送邮件。
+
+`invite-credits EMAIL TOTAL_CREDITS` 将该新用户邀请的初始试用额度设为100至5000点，默认仍为100点，不改变邀请码、期限或其他用户。未注册时持久保存到邀请，注册事务一次性发放并记入账单；已注册且仍处于有效邀请试用时只补足与已发放试用额度的差额，保留已消费、预占、充值点和到期时间。相同值重复执行不重复赠送，已发额度不能下调；旧空间认领邀请不支持额外试用赠送。重新创建邀请会恢复默认100点，需要重新设置。此命令仅在服务器运行，没有客户端任意赠点接口。0.3.11新增邀请字段，旧版本会忽略自定义额度；回滚需核对尚未领取的邀请，不能声称旧binary能继续兑现自定义额度。
 
 原私有空间必须用第二条命令指定精确 `users.id`。先备份并核实该ID的记录、任务与设备数量，再发行认领邀请。注册消费此邀请时仅新增凭据、绑定邮箱，不创建同名空间，不替换原 profile、记录、任务或个人模型设置；事务内撤销旧配对码与设备，发放新登录会话。不要按姓名自动匹配、合并账号。既有同名账号不能代替精确ID。
 
@@ -74,3 +77,5 @@ sudo -u memhot env MEMHOT_DATA_DIR=/var/lib/memhot /opt/memhot/current/memhot-se
 ## 验证
 
 `cargo test -p memhot-server --test accounts_billing`覆盖旧tenant认领、邀请消费、防跨账号、密码重置撤销、并发不透支、结算幂等、订单幂等、未知结果跨重启保持、退款桶和套餐升级差额。所有测试只使用合成数据，不触发真实模型或付款。
+
+0.3.11 的 `invitation_credits` 4项回归覆盖邀请额度跨重启保存、原码领取与防重复、其他账号默认额度不变、已注册账号保留消费/预占/充值、过期/旧空间邀请拒绝及旧schema迁移；与7项账号账单回归共同通过。2026-10-13发布到 `/opt/memhot/releases/0.3.11-20261013T151519Z`，binary SHA256为`0d0d0d767e85326c3123f06db8c9c19dbceb8afe51e3be5c0ecdabf2cba4cede`。发布阶段在私有数据库副本验证既有邀请码、钱包和账单未变，复核未修改的Pi源码、依赖树和运行时摘要后复用0.3.10测试证据。回滚备份及额度核验记录保存在同名`/opt/memhot/deployments/`阶段；Android安装包仍为0.3.5。邀请码、邮箱与配置密钥不写入仓库。

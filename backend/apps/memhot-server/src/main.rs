@@ -30,6 +30,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             let code=accounts::create_reset(&app,email)?;
             println!("Reset code (one use, 15 minutes): {code}\nNo email was sent. Verify the account owner before delivering the code.");
         }
+        "invite-credits" => {
+            let email = args.get(1).ok_or("usage: memhot-server invite-credits EMAIL TOTAL_CREDITS")?;
+            let credits = args.get(2).ok_or("usage: memhot-server invite-credits EMAIL TOTAL_CREDITS")?.parse::<i64>()?;
+            let pending = accounts::invitation_credits::set(&app, email, credits)?;
+            println!("Invitation trial credits: {credits}; pending registration: {pending}. Existing invitation code is unchanged.");
+        }
         "pair" => {
             let user = args
                 .iter()
@@ -67,7 +73,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             return Err(
-                "usage: memhot-server [serve | check | invite EMAIL [--user USER_ID] [--days N] | adminreset EMAIL | pair NAME [--user USER_ID] | revoke USER_ID]".into(),
+                "usage: memhot-server [serve | check | invite EMAIL [--user USER_ID] [--days N] | invite-credits EMAIL TOTAL_CREDITS | adminreset EMAIL | pair NAME [--user USER_ID] | revoke USER_ID]".into(),
             )
         }
     }

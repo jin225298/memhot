@@ -50,8 +50,9 @@ pub async fn register(State(app): State<App>, Json(input): Json<Register>) -> Re
     let encoded = password::hash_password(input.password).await?;
     let mut conn = app.store.conn()?;
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    let claim:Option<Option<String>>=tx.query_row("SELECT claim_user_id FROM account_invites WHERE code_hash=? AND email=? AND used=0 AND expires>?",params![hash(input.invite_code.trim().as_bytes()),email,chrono::Utc::now().timestamp()],|r|r.get(0)).optional()?;
-    let claim = claim.ok_or_else(auth_error)?;
+    let invitation:Option<(Option<String>,i64)>=tx.query_row("SELECT claim_user_id,test_credits FROM account_invites WHERE code_hash=? AND email=? AND used=0 AND expires>?",params![hash(input.invite_code.trim().as_bytes()),email,chrono::Utc::now().timestamp()],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+    let (claim, test_credits) = invitation.ok_or_else(auth_error)?;
+    let new_user = claim.is_none();
     if tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM accounts WHERE email=?)",
         [&email],
@@ -90,6 +91,9 @@ pub async fn register(State(app): State<App>, Json(input): Json<Register>) -> Re
     tx.execute("DELETE FROM pairs WHERE user_id=?", [&user])?;
     tx.execute("DELETE FROM devices WHERE user_id=?", [&user])?;
     crate::billing::ensure_wallet(&tx, &user)?;
+    if new_user {
+        super::invitation_credits::apply(&tx, &user, test_credits)?;
+    }
     let out = session(&tx, &user, &input.device_name)?;
     tx.commit()?;
     Ok(Json(out))

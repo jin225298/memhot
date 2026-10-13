@@ -15,11 +15,14 @@ pub mod api;
 #[path = "accounts_password.rs"]
 pub mod password;
 pub use api::{account, login, register, reset_password, revoke_session, sessions};
+#[path = "accounts_invitation_credits.rs"]
+pub mod invitation_credits;
 
 pub fn migrate(conn: &Connection) -> Result<()> {
     conn.execute_batch("CREATE TABLE IF NOT EXISTS accounts(user_id TEXT PRIMARY KEY REFERENCES users(id),email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,disabled INTEGER NOT NULL DEFAULT 0,created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS account_invites(code_hash TEXT PRIMARY KEY,email TEXT NOT NULL,claim_user_id TEXT REFERENCES users(id),expires INTEGER NOT NULL,used INTEGER NOT NULL DEFAULT 0,created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS account_resets(code_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires INTEGER NOT NULL,used INTEGER NOT NULL DEFAULT 0);")?;
+    invitation_credits::migrate(conn)?;
     for (column, sql) in [
         (
             "expires",
