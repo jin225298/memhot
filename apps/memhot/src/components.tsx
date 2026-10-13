@@ -101,11 +101,18 @@ export function EvidenceList({
                 阅读原文 <Icon name="external" size={15} />
               </ExternalLink>
             )}
-            {item.attribution?.name === "AIHOT" && safeExternalUrl(item.attribution.url) && (
-              <ExternalLink className="text-button" href={item.attribution.url}>
-                发现渠道：AIHOT <Icon name="external" size={15} />
-              </ExternalLink>
-            )}
+            {item.attribution?.name === "AIHOT" &&
+              safeExternalUrl(item.attribution.url) && (
+                <ExternalLink
+                  className="text-button"
+                  href={item.attribution.url}
+                >
+                  {item.contentOrigin === "external_editorial"
+                    ? "摘要来自 AIHOT"
+                    : "发现渠道：AIHOT"}{" "}
+                  <Icon name="external" size={15} />
+                </ExternalLink>
+              )}
           </div>
         </details>
       ))}

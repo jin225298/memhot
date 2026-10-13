@@ -92,19 +92,10 @@ pub(super) fn definitions(scope: &Scope, papers: bool) -> Value {
     if crate::aihot::enabled()
         && !matches!(scope, Scope::Public { catalog_id, .. } if !matches!(catalog_id.as_str(), "ai" | "robotics"))
     {
-        let public = matches!(scope, Scope::Public { .. });
-        let actions = if matches!(scope, Scope::Public { catalog_id, .. } if catalog_id == "robotics")
-        {
-            json!(["search"])
-        } else {
-            json!(["latest", "search", "hot", "story", "daily", "weekly", "monthly"])
-        };
-        let mut properties = json!({"action":{"type":"string","enum":actions},"storyId":{"type":"string","minLength":1,"maxLength":128}});
-        if !public {
-            properties["query"] = json!({"type":"string","minLength":2,"maxLength":180});
-            properties["period"] = json!({"type":"string","minLength":7,"maxLength":10});
-        }
-        definitions.as_array_mut().unwrap().push(json!({"name":"aihot","description":"Discover AI news using AIHOT's anonymous read-only MCP. Prefer daily for an edited AI overview, latest for recent picks, hot then story for a discovered event, search for public company/model/product topics, weekly/monthly for overviews. Public requests use fixed catalog queries only. Story IDs must come from this run's hot results. Private search queries must omit personal/private text. Preserve AIHOT attribution and original links; summaries are discoveries, use read_source before citing facts.","inputSchema":{"type":"object","properties":properties,"required":["action"],"additionalProperties":false}}));
+        definitions
+            .as_array_mut()
+            .unwrap()
+            .push(super::aihot_definition::definition(scope));
     }
     if papers && matches!(scope, Scope::Private { .. }) {
         definitions

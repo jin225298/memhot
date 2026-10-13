@@ -1,94 +1,227 @@
-.timeline-toolbar {
+.thought-filters {
+  margin: 20px 0 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 16px #302b2208;
+}
+.thought-search {
+  width: 100%;
+  min-height: 44px;
+}
+.thought-filters .thought-search {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.thought-search input {
+  min-width: 0;
+  font-size: 14px;
+}
+.thought-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.thought-filter-row .ui-select-trigger {
+  flex: 1;
+  min-width: 120px;
+  max-width: 100%;
+  background: var(--bg);
+}
+.collection-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 20px 0 26px;
   gap: 12px;
+  margin: 20px 0 8px;
 }
-.timeline-toolbar > span,
-.thought-day-heading > span {
+.collection-toolbar > span {
   font-size: 12px;
   color: var(--muted);
 }
-.thought-day {
-  margin-bottom: 36px;
-}
-.thought-day-heading {
+.group-switch {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 10px 0;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--subtle);
+}
+.group-switch button {
+  min-height: 38px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.group-switch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 2px 5px #302b2208;
+}
+.thought-collection,
+.reading-date-group {
   border-bottom: 1px solid var(--line);
 }
-.thought-day-heading h2 {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted);
+.collection-heading {
+  padding: 20px 0;
+  min-height: 68px;
+}
+.collection-heading > span:first-child {
+  min-width: 0;
+}
+.collection-heading strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
 }
-.topic-fold {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 12px;
-  margin: 12px 0;
-  padding-inline: 18px;
-}
-.topic-fold .ui-accordion-trigger {
-  padding: 18px 0;
-}
-.topic-preview {
-  min-width: 0;
-  flex: 1;
+.collection-heading small {
   display: block;
-}
-.topic-title {
-  display: block;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.7;
-}
-.topic-excerpt {
-  font-size: 13px;
+  margin-top: 6px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.9;
   color: var(--muted);
-  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collection-items {
+  display: grid;
+  gap: 14px;
+  padding: 0 0 22px;
+}
+.thought-entry {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 16px #302b2208;
+  overflow: hidden;
+}
+.thought-entry-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 20px 22px 12px;
+}
+.thought-entry-open h3 {
+  margin: 10px 0 8px;
+  font-size: 17px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.thought-entry-open p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.topic-meta {
-  display: block;
-  font-size: 11px;
+.thought-open-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  margin-top: 14px;
+}
+.thought-entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 16px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.delete-thought-button {
   color: var(--muted);
-  margin-top: 12px;
 }
-.topic-fold[data-state="open"] .topic-excerpt {
-  display: none;
+.delete-thought-button:hover:not(:disabled) {
+  color: var(--danger);
 }
-.topic-unfolded {
-  padding: 0 0 22px;
+.thought-detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 26px;
 }
-.topic-summary {
+.thought-organize {
+  margin-top: 38px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.thought-organize h2 {
+  font-size: 15px;
+}
+.thought-organize p {
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.delete-thought-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 18px 0 10px;
+  overflow-wrap: anywhere;
+}
+.preference-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--subtle);
+  margin: 20px 0;
   font-size: 14px;
-  line-height: 1.95;
-  color: var(--muted);
-  margin-bottom: 22px;
-  white-space: pre-line;
+  cursor: pointer;
 }
-.topic-unfolded h4 {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 400;
-  margin: 0 0 10px;
+.preference-feedback input {
+  width: 18px;
+  height: 18px;
+  margin: 3px 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
 }
-.topic-question {
-  font: 16px/1.95 var(--reading-font);
-}
-.thought-intro {
-  font-size: 12px;
+.preference-feedback small {
+  display: block;
   color: var(--muted);
-  line-height: 1.85;
-  margin: 12px 0 18px;
+  line-height: 1.8;
+  margin-top: 5px;
+}
+.delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 26px;
+}
+.delete-action {
+  background: var(--danger);
+  color: var(--surface);
+}
+.reading-date-groups {
+  margin-top: 18px;
+}
+.reading-date-group .report-list {
+  padding-top: 0;
+  padding-bottom: 22px;
+}
+@media (max-width: 580px) {
+  .thought-filters {
+    padding: 12px 14px;
+  }
+  .thought-filter-row .ui-select-trigger {
+    min-width: 110px;
+  }
+  .thought-entry-open {
+    padding: 18px 18px 12px;
+  }
+  .thought-entry-open h3 {
+    font-size: 16px;
+  }
+  .thought-entry-open .detail-meta {
+    font-size: 11px;
+  }
 }

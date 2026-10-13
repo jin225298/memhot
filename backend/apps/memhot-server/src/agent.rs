@@ -6,6 +6,8 @@ use crate::{
     App,
 };
 use serde_json::{json, Value};
+#[path = "agent_aihot_definition.rs"]
+mod aihot_definition;
 #[path = "agent_papers.rs"]
 mod papers;
 #[path = "agent_process.rs"]
@@ -99,7 +101,7 @@ impl Scope {
             }
             let conn = app.store.conn()?;
             if let Some(j) = job {
-                let active:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND user_id=? AND status='running' AND attempt=? AND lease_until>=?)",rusqlite::params![j.id,user,j.attempt,chrono::Utc::now().timestamp()],|r|r.get(0))?;
+                let active = crate::research::job_active(&conn, j)?;
                 if !active {
                     return Err(Error::missing());
                 }

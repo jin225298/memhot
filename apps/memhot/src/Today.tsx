@@ -101,6 +101,7 @@ export function Today({
       </div>
       <ReadingArchive
         api={api}
+        timezone={home.profile.timezone}
         kind={category}
         refreshKey={home.reports.map((r) => `${r.id}:${r.status}`).join(",")}
         onReport={(id) => {

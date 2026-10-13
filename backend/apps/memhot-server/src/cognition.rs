@@ -22,6 +22,30 @@ fn valid_type(kind: &str) -> bool {
 pub fn context(app: &App, user: &str) -> Result<Vec<Value>> {
     Ok(app.store.list_all(user,"cognition")?.into_iter().filter(|c|c["status"]=="active").map(|c|json!({"id":c["id"],"type":c["type"],"statement":c["statement"],"origin":c["origin"],"inferenceReason":c["inferenceReason"],"confidence":c["confidence"],"evidenceRefs":c["evidenceRefs"]})).collect())
 }
+/// Formation receives only bounded current statements; historical evidence is not a new preference.
+pub fn formation_context(app: &App, user: &str) -> Result<Vec<Value>> {
+    let mut budget = 12_000;
+    let mut out = Vec::new();
+    for item in context(app, user)?.into_iter().rev() {
+        if out.len() == 32 {
+            break;
+        }
+        let Some(kind) = item["type"].as_str().filter(|s| valid_type(s)) else {
+            continue;
+        };
+        let Some(text) = item["statement"].as_str().filter(|s| !s.trim().is_empty()) else {
+            continue;
+        };
+        let count = text.chars().count();
+        // Keep each statement intact so a scope or qualification cannot be truncated away.
+        if count > 2000 || count > budget {
+            continue;
+        }
+        budget -= count;
+        out.push(json!({"type":kind,"statement":text}));
+    }
+    Ok(out)
+}
 fn statement(value: &Value) -> Result<&str> {
     value
         .as_str()

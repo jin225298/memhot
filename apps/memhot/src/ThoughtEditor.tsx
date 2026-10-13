@@ -22,10 +22,14 @@ export function ThoughtEditor({
   const [summary, setSummary] = useState(thought?.summary || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState(false);
-  useBackAction(true, () => {
-    if (!busy) { if (confirm) setConfirm(false); else onBack(); }
-  }, backLayer.editor);
+  const [category, setCategory] = useState(thought?.category || "");
+  useBackAction(
+    true,
+    () => {
+      if (!busy) onBack();
+    },
+    backLayer.editor,
+  );
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -40,24 +44,9 @@ export function ThoughtEditor({
           title: title.trim(),
           question: question.trim(),
           summary: summary.trim(),
+          category: category.trim(),
           ...(thought ? { revision: thought.revision } : {}),
         },
-      );
-      onSaved();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function remove() {
-    if (!thought) return;
-    setBusy(true);
-    setError("");
-    try {
-      await api.request(
-        `/api/v1/thoughts/${encodeURIComponent(thought.id)}`,
-        "DELETE",
       );
       onSaved();
     } catch (e) {
@@ -76,7 +65,7 @@ export function ThoughtEditor({
         <Icon name="back" size={18} />
         返回思考
       </button>
-      <h1>{thought ? "把问题说得更准确" : "补充一个值得追问的问题"}</h1>
+      <h1>{thought ? "编辑思考" : "新增思考"}</h1>
       <form onSubmit={save}>
         <label>
           这个方向叫什么
@@ -109,8 +98,17 @@ export function ThoughtEditor({
             onChange={(e) => setSummary(e.target.value)}
           />
         </label>
+        <label>
+          分类（可选）
+          <input
+            maxLength={40}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="例如：产品、工作、生活"
+          />
+        </label>
         <p className="field-hint">
-          保存后会进入夜间研究。你的修改会保留，之后的自动整理不会覆盖它。
+          保存后会安排研究，并记下你想探索的方向。对应偏好可以在「个人偏好」修改。
         </p>
         {error && <Notice error={error} />}
         <button
@@ -120,29 +118,6 @@ export function ThoughtEditor({
           {busy ? "处理中…" : "保存问题"}
         </button>
       </form>
-      {thought &&
-        (confirm ? (
-          <div className="delete-confirm">
-            <p>删除这个思考？它将停止研究，相关原文仍保留。</p>
-            <button
-              className="danger-text"
-              disabled={busy}
-              onClick={() => void remove()}
-            >
-              确认删除
-            </button>
-            <button disabled={busy} onClick={() => setConfirm(false)}>
-              取消
-            </button>
-          </div>
-        ) : (
-          <button
-            className="text-button danger-text"
-            onClick={() => setConfirm(true)}
-          >
-            删除这个思考
-          </button>
-        ))}
     </section>
   );
 }

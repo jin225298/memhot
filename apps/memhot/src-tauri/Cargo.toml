@@ -1,6 +1,6 @@
 [package]
 name = "memhot-app"
-version = "0.3.3"
+version = "0.3.4"
 description = "Memhot personal thinking and research companion"
 edition.workspace = true
 rust-version.workspace = true

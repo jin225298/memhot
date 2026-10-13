@@ -1,5 +1,13 @@
 import { Icon } from "./Icon";
 import { Markdown } from "./Markdown";
+import { ReportDocument } from "./ReportDocument";
+import { ReportContents } from "./ReportContents";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "./ui/accordion";
 import type { EditorialStory, Report } from "./types";
 
 export function Editorial({
@@ -14,14 +22,10 @@ export function Editorial({
   onEvent: (id: string) => void;
 }) {
   const editorial = report.editorial;
-  if (!editorial) return <Markdown text={report.body} />;
+  if (!editorial) return <ReportDocument text={report.body} />;
   const stories = editorial.stories;
   const lead =
     stories.find((s) => s.id === editorial.leadStoryId) || stories[0];
-  const highlights =
-    editorial.highlights
-      ?.map((id) => stories.find((s) => s.id === id))
-      .filter((s): s is EditorialStory => Boolean(s)) || stories.slice(0, 3);
   const sections = editorial.sections?.length
     ? editorial.sections
     : [
@@ -52,17 +56,9 @@ export function Editorial({
         id={anchor(story)}
         key={key}
       >
-        {featured && (
-          <div className="report-label">
-            <span>今日重点</span>
-            <span>{story.category}</span>
-          </div>
-        )}
         <h2>{story.title}</h2>
         <div className="story-summary">
-          {story.summary.split(/\n\n+/).map((paragraph, i) => (
-            <p key={i}>{paragraph}</p>
-          ))}
+          <Markdown text={story.summary} />
         </div>
         {story.whyItMatters && (
           <div className="story-perspective">
@@ -77,26 +73,35 @@ export function Editorial({
             <strong>阅读提示</strong> {story.readingGuide}
           </p>
         )}
-        <div className="story-materials">
-          {sources.map((source) => (
-            <button
-              key={source.id}
-              className="story-source"
-              onClick={() => onMaterial(source.id)}
-            >
-              <span>
-                <small>
-                  {source.publisher || "原始来源"}
-                  {source.retrievalKind === "metadata_or_abstract"
-                    ? " · 摘要"
-                    : ""}
-                </small>
-                <strong>{source.title}</strong>
-              </span>
-              <Icon name="arrow" size={17} />
-            </button>
-          ))}
-        </div>
+        {sources.length > 0 && (
+          <Accordion className="story-materials" type="single" collapsible>
+            <AccordionItem value="sources">
+              <AccordionTrigger>
+                资料与出处 · {sources.length} 份
+              </AccordionTrigger>
+              <AccordionContent>
+                {sources.map((source) => (
+                  <button
+                    key={source.id}
+                    className="story-source"
+                    onClick={() => onMaterial(source.id)}
+                  >
+                    <span>
+                      <small>
+                        {source.publisher || "原始来源"}
+                        {source.retrievalKind === "metadata_or_abstract"
+                          ? " · 摘要"
+                          : ""}
+                      </small>
+                      <strong>{source.title}</strong>
+                    </span>
+                    <Icon name="arrow" size={17} />
+                  </button>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
         <div className="story-actions">
           <button
             className="text-button"
@@ -124,18 +129,23 @@ export function Editorial({
   };
   return (
     <div className="editorial">
-      {highlights.length > 0 && (
-        <nav className="edition-contents" aria-label="本期重点">
-          <p className="eyebrow">这一期，先看这些</p>
-          {highlights.map((story, i) => (
-            <a key={story.id || i} href={`#${anchor(story)}`}>
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              {story.title}
-              <Icon name="arrow" size={15} />
-            </a>
-          ))}
-        </nav>
-      )}
+      <ReportContents
+        label="本期目录"
+        entries={[
+          ...stories.map((story) => ({
+            id: anchor(story),
+            title: story.title,
+          })),
+          ...(editorial.flashes?.length
+            ? [
+                {
+                  id: "edition-flashes",
+                  title: `快讯 · ${editorial.flashes.length} 条`,
+                },
+              ]
+            : []),
+        ]}
+      />
       {lead && renderStory(lead, true)}
       {sections.map((section) => {
         const selected = stories.filter(
@@ -160,14 +170,14 @@ export function Editorial({
         .filter((s) => !rendered.has(s.id || s.title))
         .map((s) => renderStory(s))}
       {!!editorial.flashes?.length && (
-        <section className="edition-flashes">
+        <section className="edition-flashes" id="edition-flashes">
           <h2 className="edition-section-title">
             快讯<span>{editorial.flashes.length}</span>
           </h2>
           {editorial.flashes.map((story, i) => (
             <div className="edition-flash" key={story.id || i}>
               <h3>{story.title}</h3>
-              <p>{story.summary}</p>
+              {story.summary && <Markdown text={story.summary} />}
               <div className="story-actions">
                 {story.evidenceIds?.[0] && (
                   <button

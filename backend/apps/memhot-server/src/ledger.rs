@@ -46,7 +46,7 @@ pub fn reserve_fingerprinted(
         if user != job.user {
             return Err(Error::missing());
         }
-        let active:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND user_id=? AND status='running' AND attempt=?)",params![job.id,user,job.attempt],|r|r.get(0))?;
+        let active = crate::research::job_active(&tx, job)?;
         if !active {
             return Err(Error::missing());
         }

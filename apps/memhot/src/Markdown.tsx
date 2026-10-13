@@ -9,6 +9,16 @@ export function Markdown({ text }: { text: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          table: ({ children }) => (
+            <div
+              className="table-scroll"
+              role="region"
+              aria-label="数据表格，可横向滚动"
+              tabIndex={0}
+            >
+              <table>{children}</table>
+            </div>
+          ),
           a: ({ href, children }) => {
             const safe = safeExternalUrl(href || "");
             return safe ? (

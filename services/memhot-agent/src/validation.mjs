@@ -12,7 +12,7 @@ export const LIMITS = Object.freeze({
   toolSchema: 32 * 1024,
   maxTools: 16,
   maxSteps: 32,
-  rpcTimeoutMs: 120_000,
+  rpcTimeoutMs: 210_000,
   runTimeoutMs: 15 * 60_000,
 });
 

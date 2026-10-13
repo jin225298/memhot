@@ -8,6 +8,8 @@ import { Icon } from "./Icon";
 import type { Report } from "./types";
 import { useBackAction } from "./useBackAction";
 import { backLayer } from "./backNavigation";
+import { Markdown } from "./Markdown";
+import { ExternalLink } from "./ExternalLink";
 export function Reader({
   api,
   reportId,
@@ -110,38 +112,64 @@ export function Reader({
         <Loading />
       ) : (
         <>
-          <div className="report-label reader-meta">
-            <span>
-              {report.kind === "research" ? "延续你的思考" : "兴趣日报"}
-            </span>
-            <span>{shortDate(report.createdAt)}</span>
-          </div>
-          <h1>{report.title}</h1>
-          <div className="reader-tools">
-            {report.editorial?.metrics && (
+          <header className="report-header">
+            <div className="report-label reader-meta">
               <span>
-                {report.editorial.metrics.storyCount} 件进展 ·{" "}
-                {report.editorial.metrics.publisherCount} 个来源机构 · 约{" "}
-                {report.editorial.metrics.readingMinutes} 分钟
+                {report.kind === "research" ? "深度研究" : "兴趣日报"}
               </span>
-            )}
-            <button
-              className="text-button"
-              aria-pressed={Boolean(report.saved)}
-              disabled={saving}
-              onClick={() => void toggleSaved()}
-            >
-              <Icon name="bookmark" size={17} />
-              {saving ? "保存中…" : report.saved ? "已收藏" : "收藏"}
-            </button>
-          </div>
+              <span>{shortDate(report.createdAt)}</span>
+            </div>
+            <h1>{report.title}</h1>
+            <div className="reader-tools">
+              {report.editorial?.metrics ? (
+                <span>
+                  {report.editorial.metrics.storyCount} 件进展 ·{" "}
+                  {report.editorial.metrics.publisherCount} 个来源机构 · 约{" "}
+                  {report.editorial.metrics.readingMinutes} 分钟
+                </span>
+              ) : (
+                <span>
+                  {report.sources?.length || 0} 份资料 · 约{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(
+                      (report.body.length + report.summary.length) / 500,
+                    ),
+                  )}{" "}
+                  分钟
+                </span>
+              )}
+              <button
+                className="text-button"
+                aria-pressed={Boolean(report.saved)}
+                disabled={saving}
+                onClick={() => void toggleSaved()}
+              >
+                <Icon name="bookmark" size={17} />
+                {saving ? "保存中…" : report.saved ? "已收藏" : "收藏"}
+              </button>
+            </div>
+            {report.contentOrigin === "external_editorial" &&
+              report.attribution && (
+                <p className="report-attribution">
+                  本期内容来自{" "}
+                  <ExternalLink href={report.attribution.url}>
+                    {report.attribution.name}
+                  </ExternalLink>
+                </p>
+              )}
+          </header>
           {saveError && <Notice error={saveError} />}
           {report.status === "incomplete" && (
             <p className="partial-note">
               这份内容尚未完成分析，目前只保留了部分资料。
             </p>
           )}
-          <p className="reader-summary">{report.summary}</p>
+          {report.summary && (
+            <div className="reader-summary">
+              <Markdown text={report.summary} />
+            </div>
+          )}
           {report.status === "partial" && (
             <p className="partial-note">
               这份材料仍有证据缺口，请结合原始来源判断。
@@ -157,39 +185,41 @@ export function Reader({
               <p>{report.question}</p>
             </details>
           )}
-          <Editorial
-            report={report}
-            onDiscuss={(question) => onDiscuss(report, question)}
-            onMaterial={(id) => setView({ kind: "material", id })}
-            onEvent={(id) => setView({ kind: "event", id })}
-          />
-          {followUps.length > 0 && (
-            <section className="unanswered">
-              <h2>仍然值得追问</h2>
-              <ul>
-                {followUps.map((gap, i) => (
-                  <li key={i}>{gap}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <section className="reader-sources">
-            <div className="section-heading">
-              <h2>材料与出处</h2>
-              <span className="muted">
-                {report.sources?.length || 0} 份来源
-              </span>
-            </div>
-            <EvidenceList
-              evidence={report.sources || []}
-              onRead={(id) => setView({ kind: "material", id })}
+          <div className="report-paper">
+            <Editorial
+              report={report}
+              onDiscuss={(question) => onDiscuss(report, question)}
+              onMaterial={(id) => setView({ kind: "material", id })}
+              onEvent={(id) => setView({ kind: "event", id })}
             />
-            {!report.sources?.length && (
-              <p className="muted">
-                本次没有获得可核验的外部来源，不能把生成内容当作已验证事实。
-              </p>
+            {followUps.length > 0 && (
+              <section className="unanswered">
+                <h2>仍然值得追问</h2>
+                <ul>
+                  {followUps.map((gap, i) => (
+                    <li key={i}>{gap}</li>
+                  ))}
+                </ul>
+              </section>
             )}
-          </section>
+            <section className="reader-sources">
+              <div className="section-heading">
+                <h2>材料与出处</h2>
+                <span className="muted">
+                  {report.sources?.length || 0} 份来源
+                </span>
+              </div>
+              <EvidenceList
+                evidence={report.sources || []}
+                onRead={(id) => setView({ kind: "material", id })}
+              />
+              {!report.sources?.length && (
+                <p className="muted">
+                  本次没有获得可核验的外部来源，不能把生成内容当作已验证事实。
+                </p>
+              )}
+            </section>
+          </div>
           <div className="continue-discussion">
             <div>
               <h2>有新的想法了？</h2>

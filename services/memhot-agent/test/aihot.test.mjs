@@ -36,6 +36,19 @@ test('official Pi MCP performs initialize/list/call/close through the injected h
   assert.equal(result.overview.attribution.url, 'https://aihot.news/daily/2026-10-12');
   assert.equal(result.overview.period.date, '2026-10-12');
   assert.match(result.overview.warning, /不是已核对原文证据/);
+  assert.deepEqual(result.dailyReport, fixture.structuredContent.report);
+});
+
+test('finished daily preserves all provided sections and text without promoting snippets', () => {
+  const daily = structuredClone(fixture);
+  daily.structuredContent.report.sections[0].items[0].summary = '完整摘要。'.repeat(500);
+  const result = parseAiHotResult(daily, start.tool);
+  assert.equal(result.sources[0].text.length, 1200);
+  assert.equal(result.dailyReport.sections[0].items[0].summary.length, 2500);
+  assert.equal(result.sources[0].fulltext, false);
+  assert.equal(parseAiHotResult(daily, 'aihot_get_weekly').dailyReport, undefined);
+  daily.structuredContent.report.sections[0].items[0].summary = 'x'.repeat(65537);
+  assert.throws(() => parseAiHotResult(daily, start.tool));
 });
 
 test('input, untrusted attribution, malformed schema and remote errors fail closed', () => {

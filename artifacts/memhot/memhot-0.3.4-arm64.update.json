@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.angelkang.memhot",
+  "version": "0.3.4",
+  "versionCode": 1007,
+  "minSdk": 24,
+  "abi": "arm64-v8a",
+  "url": "https://memhot.angelkang.com/downloads/memhot-0.3.4-arm64.apk",
+  "size": 44012186,
+  "sha256": "e5a224a99edbb3c37f326805f88633133fa6bb8e6c7e4ed619e0d0dde1e82e41",
+  "notes": [
+    "日报与调研报告统一排版，增加阅读目录和收起的资料区。",
+    "思考和阅读按日期收纳，支持历史搜索、分类和归档。",
+    "删除思考移到明确位置，可选择少推荐类似问题。",
+    "主动新增或修改问题会更新个人偏好，可随时编辑。"
+  ],
+  "publishedAt": "2026-10-13T11:15:18Z"
+}

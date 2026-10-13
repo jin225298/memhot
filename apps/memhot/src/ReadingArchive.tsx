@@ -4,6 +4,13 @@ import { Empty, Loading, Notice } from "./components";
 import { Icon } from "./Icon";
 import { SelectField } from "./ui/select";
 import type { Report } from "./types";
+import { localDay } from "./thoughtArchive";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "./ui/accordion";
 
 interface Archive {
   reports: Report[];
@@ -22,12 +29,14 @@ export function ReadingArchive({
   refreshKey,
   onReport,
   emptyAction,
+  timezone,
 }: {
   api: Api;
   kind: "research" | "digest";
   refreshKey: string;
   onReport: (id: string) => void;
   emptyAction: () => void;
+  timezone: string;
 }) {
   const [period, setPeriod] = useState("all");
   const [saved, setSaved] = useState(false);
@@ -96,6 +105,11 @@ export function ReadingArchive({
   const reports = current?.reports || [];
   const complete = reports.filter((r) => r.status !== "incomplete");
   const incomplete = reports.filter((r) => r.status === "incomplete");
+  const dates = [
+    ...new Set(complete.map((r) => localDay(r.createdAt, timezone))),
+  ]
+    .sort()
+    .reverse();
   return (
     <section className="reading-archive" aria-label="阅读资料库">
       <div className="archive-controls">
@@ -206,15 +220,48 @@ export function ReadingArchive({
               <small>根据已收到的内容汇总</small>
             </div>
           )}
-          <div className="report-list" aria-busy={busy}>
-            {complete.map((report) => (
-              <ReadingItem
-                key={report.id}
-                report={report}
-                onOpen={() => onReport(report.id)}
-              />
+          <Accordion
+            key={filter}
+            className="reading-date-groups"
+            type="multiple"
+            defaultValue={filtering ? dates : dates.slice(0, 1)}
+            aria-busy={busy}
+          >
+            {dates.map((date) => (
+              <AccordionItem
+                key={date}
+                value={date}
+                className="reading-date-group"
+              >
+                <AccordionTrigger className="collection-heading">
+                  <span>
+                    <strong>{date.replaceAll("-", ".")}</strong>
+                    <small>
+                      {
+                        complete.filter(
+                          (r) => localDay(r.createdAt, timezone) === date,
+                        ).length
+                      }{" "}
+                      份{kind === "digest" ? "日报" : "研究"}
+                    </small>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="report-list">
+                    {complete
+                      .filter((r) => localDay(r.createdAt, timezone) === date)
+                      .map((report) => (
+                        <ReadingItem
+                          key={report.id}
+                          report={report}
+                          onOpen={() => onReport(report.id)}
+                        />
+                      ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
           {incomplete.length > 0 && (
             <details className="unfinished-reports">
               <summary>

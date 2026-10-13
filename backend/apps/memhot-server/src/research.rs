@@ -21,6 +21,9 @@ use citations::Citations;
 use serde_json::{json, Value};
 
 pub use crate::research_queue::queue;
+#[path = "research_lifecycle.rs"]
+mod lifecycle;
+pub(crate) use lifecycle::{cancel_archived, check_active, job_active, thought_active};
 
 pub fn available(report: &Value) -> bool {
     report["availableAt"]
@@ -151,6 +154,7 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     if kind == "digest" && job.payload["digestStage"] != "private" {
         return crate::digest::run(app, job).await;
     }
+    check_active(app, job)?;
     crate::billing::ensure_available(app, &job.user, 1)?;
     let epoch = app.store.epoch(&job.user)?;
     let mut profile = app.store.profile(&job.user)?;
@@ -189,6 +193,11 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
             .into_iter()
             .find(|t| matches!(t["status"].as_str(), Some("open" | "kept")))
     };
+    if let Some(key) = thought.as_ref().and_then(|t| t["id"].as_str()) {
+        if !thought_active(&*app.store.conn()?, &job.user, key)? {
+            return Err(Error::missing());
+        }
+    }
     let interests = profile["interests"]
         .as_array()
         .map(|a| {
@@ -282,6 +291,7 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
         &profile,
     )
     .await?;
+    check_active(app, job)?;
     let claims = gathered.claims;
     gaps.extend(gathered.gaps);
     if claims.is_empty() {
@@ -330,6 +340,7 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     } else {
         None
     };
+    check_active(app, job)?;
     let mut body = if kind == "digest" {
         "近7天发布的新材料，排除近期已推送的来源。\n\n".to_owned()
     } else {

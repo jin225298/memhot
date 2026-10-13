@@ -72,25 +72,6 @@ async fn revise_known_complete_report_samples() {
         .unwrap()
     };
     write("research-revision.json", &research);
-    let review_scope = Scope::public("copyedit-frozen-public-qa", "ai").unwrap();
-    let original = samples["digestStories"].as_array().unwrap();
-    let digest = if let Ok(path) = std::env::var("MEMHOT_COPYEDIT_QA_PRIOR_DIGEST") {
-        // Explicitly reuse a completed public sample when only the private editing
-        // contract changed; no new provider request or reset of an uncertain call.
-        let path = PathBuf::from(path);
-        assert!(path.is_absolute() && path.to_string_lossy().contains("/qa/"));
-        let prior: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        for (before, after) in original.iter().zip(&prior) {
-            for field in ["id", "facts", "title", "summary", "publishedAt"] {
-                assert_eq!(before[field], after[field]);
-            }
-        }
-        prior
-    } else {
-        digest(&app, &review_scope, original).await.unwrap()
-    };
-    write("digest-revision.json", &json!(digest));
-    assert_eq!(digest.len(), original.len());
     assert_eq!(
         research["sections"].as_array().unwrap().len(),
         samples["researchDraft"]["sections"]
@@ -138,60 +119,6 @@ async fn revise_known_complete_report_samples() {
     let rendered =
         crate::research_reasoning::render(&research, &research_review, &claims, &evidence);
     write("research-rendered.json", &json!(rendered));
-    let mut stories = samples["digestReviewStories"].as_array().unwrap().clone();
-    for s in &mut stories {
-        let revised = digest.iter().find(|d| d["id"] == s["id"]).unwrap();
-        for field in ["whyItMatters", "readingGuide", "limitations"] {
-            s[field] = revised[field].clone();
-        }
-    }
-    let review = if let Ok(path) = std::env::var("MEMHOT_COPYEDIT_QA_PRIOR_DIGEST_REVIEW") {
-        let path = PathBuf::from(path);
-        assert!(path.is_absolute() && path.to_string_lossy().contains("/qa/"));
-        serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
-    } else {
-        let review = agent::run(
-            &app,
-            &review_scope,
-            Spec {
-                mode: "review",
-                purpose: "qa-final-editorial-review",
-                instructions: crate::editorial::REVIEW_INSTRUCTIONS,
-                prompt: json!({"topic":"人工智能","asOf":crate::now(),"stories":stories}),
-                max_steps: 1,
-                max_output_tokens: 8192,
-                tools: false,
-            },
-            ToolContext::default(),
-        )
-        .await
-        .unwrap();
-        let review = crate::agent_structured::decode(
-            &app,
-            &review_scope,
-            "qa-final-editorial-review",
-            &review.text,
-            crate::editorial::REVIEW_INSTRUCTIONS,
-        )
-        .await
-        .unwrap();
-        review
-    };
-    write("digest-review.json", &review);
-    let accepted: Vec<_> = digest
-        .iter()
-        .filter(|s| {
-            review["checks"].as_array().into_iter().flatten().any(|c| {
-                c["id"] == s["id"]
-                    && c["supported"] == true
-                    && c["relevant"] == true
-                    && c["noUnsupportedDetail"] == true
-            })
-        })
-        .cloned()
-        .collect();
-    write("digest-accepted.json", &json!(accepted));
-    assert!(accepted.len() >= 2);
     let (_, body) = rendered.expect("useful reviewed reasoning remains");
     for unsupported in [
         "最先撞上的阻力是隐私",
@@ -205,6 +132,6 @@ async fn revise_known_complete_report_samples() {
         .unwrap();
     write(
         "outcome.json",
-        &json!({"passed":true,"scope":"frozen completed drafts; semantic revision and independent review, not a fresh retrieval run","digestStories":accepted.len(),"researchSections":body.matches("### ").count(),"manualReviewRequired":true}),
+        &json!({"passed":true,"scope":"frozen completed drafts; semantic revision and independent review, not a fresh retrieval run","researchSections":body.matches("### ").count(),"manualReviewRequired":true}),
     );
 }

@@ -194,7 +194,7 @@ pub(super) fn persist(app: &App, scope: &Scope, purpose: &str, saved: &Saved) ->
                 ));
             }
             if let Some(j) = job {
-                let active:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND user_id=? AND status='running' AND attempt=? AND lease_until>=?)",rusqlite::params![j.id,user,j.attempt,chrono::Utc::now().timestamp()],|r|r.get(0))?;
+                let active = crate::research::job_active(&tx, j)?;
                 if !active {
                     return Err(Error::missing());
                 }

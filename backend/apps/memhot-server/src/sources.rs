@@ -221,10 +221,21 @@ pub async fn feedback(
     }
     let mut conn = app.store.conn()?;
     let tx = conn.transaction()?;
-    let changed=tx.execute("UPDATE records SET data=json_set(data,'$.status',?,'$.researchEligible',json(?),'$.feedbackNote',COALESCE(?,json_extract(data,'$.feedbackNote')),'$.revision',COALESCE(json_extract(data,'$.revision'),0)+1) WHERE user_id=? AND kind='thought' AND id=?",params![status,if status=="kept"{"true"}else{"false"},note,user,key])?;
-    if changed == 0 {
+    let mut value =
+        crate::persistence::current(&tx, &user, "thought", &key)?.ok_or_else(Error::missing)?;
+    if value["status"] == "deleted" {
         return Err(Error::missing());
     }
+    crate::topics::check_revision(&value, &input)?;
+    value["status"] = json!(status);
+    value["researchEligible"] = json!(status == "kept");
+    value["revision"] = json!(value["revision"].as_u64().unwrap_or(0) + 1);
+    value["updatedAt"] = json!(now());
+    if let Some(note) = note {
+        value["feedbackNote"] = json!(note);
+    }
+    crate::persistence::put(&tx, &user, "thought", &value)?;
+    crate::research::cancel_archived(&tx, &user, &value)?;
     if let Some(note) = note.filter(|s| !s.trim().is_empty()) {
         crate::cognition::enqueue_observation(
             &tx,

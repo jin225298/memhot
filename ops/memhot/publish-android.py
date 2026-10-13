@@ -10,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 
 from android_release import FEED_URL, HASH, ORIGIN, apk_name, require, sha, validate_manifest, write_json
 
@@ -93,6 +94,22 @@ def download(url, destination):
                      "--output", str(destination), "--write-out", "%{http_code}", url)
     require(status == "200", f"expected direct HTTPS 200, got {status}: {url}")
     destination.chmod(0o600)
+
+
+def await_static_route(url):
+    # systemctl reload returns before new Nginx workers necessarily accept
+    # connections. The old worker can still return 404 for a newly added path.
+    # Probe only this read-only route; never retry a publication transaction.
+    for attempt in range(6):
+        status = command("curl", "--head", "--silent", "--show-error", "--proto", "=https",
+                         "--connect-timeout", "3", "--max-time", "5", "--max-redirs", "0",
+                         "--output", "/dev/null", "--write-out", "%{http_code}", url)
+        if status == "200":
+            return
+        require(status == "404", f"unexpected static route status: {status}")
+        if attempt < 5:
+            time.sleep(1)
+    raise ValueError("new static route did not become ready after Nginx reload")
 
 
 @contextmanager
@@ -216,6 +233,7 @@ def publish(stage):
             config_changed = True
             atomic_copy(stage / "nginx.conf", CONFIG)
             reload_nginx()
+            await_static_route(update["url"])
             health = verify_public(stage, update, name)
             receipt(stage, "verified-public-apk.json", {"apkSha256": update["sha256"],
                     "size": update["size"], "apiHealth": health})

@@ -6,6 +6,9 @@ use crate::{
 };
 use rusqlite::params;
 use serde_json::{json, Value};
+#[path = "digest_publication.rs"]
+mod publication;
+pub(crate) use publication::schedule_publication;
 
 pub struct Interests {
     pub public: Vec<&'static shared_public::CatalogTopic>,
@@ -45,7 +48,7 @@ pub fn interests(app: &App, user: &str) -> Result<Interests> {
     })
 }
 /// Enqueue one bounded public edition task per catalog topic; private input stays in a separate task.
-fn dispatch(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
+fn dispatch(app: &App, job: &Job, syndicated: bool) -> Result<Vec<(&'static str, Value)>> {
     let interests = interests(app, &job.user)?;
     let mut payloads: Vec<Value> = interests
         .public
@@ -63,6 +66,15 @@ fn dispatch(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     }
     let immediate: bool = tx.query_row("SELECT COALESCE(json_extract(payload,'$.deliverImmediately'),0) FROM jobs WHERE id=? AND user_id=?",params![job.id,job.user],|r|r.get(0))?;
     for mut payload in payloads {
+        // Read the live manual-refresh flag before excluding night AI work:
+        // the claimed Job can predate a request to deliver immediately.
+        if syndicated
+            && !immediate
+            && payload["catalogTopicId"] == "ai"
+            && job.payload["availableAt"].is_string()
+        {
+            continue;
+        }
         for field in ["availableAt", "researchDate", "localDate", "date"] {
             if let Some(value) = job.payload.get(field) {
                 payload[field] = value.clone();
@@ -83,7 +95,7 @@ fn dispatch(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
 }
 pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
     if job.payload["digestStage"] != "public" {
-        return dispatch(app, job);
+        return dispatch(app, job, crate::aihot::enabled());
     }
     crate::billing::ensure_subscription(app, &job.user)?;
     let topic_id = job.payload["catalogTopicId"]
@@ -143,4 +155,38 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
         }
     }
     Ok(vec![("report", report)])
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+    #[test]
+    fn manual_refresh_after_claim_still_dispatches_ai() {
+        let dir = std::env::temp_dir().join(format!("memhot-digest-dispatch-{}", crate::id()));
+        let app = App::open(dir.clone()).unwrap();
+        let (user, _) = crate::auth::create_pair(&app, "test", None).unwrap();
+        let mut p = app.store.profile(&user).unwrap();
+        p["interests"] = json!(["AI"]);
+        app.store.save_profile(&user, &p).unwrap();
+        for immediate in [false, true] {
+            app.store
+                .queue(
+                    &user,
+                    "digest",
+                    json!({"kind":"digest","availableAt":"2099-01-01T00:00:00Z"}),
+                    &format!("night-{immediate}"),
+                )
+                .unwrap();
+            let job = app.store.claim().unwrap().unwrap();
+            if immediate {
+                app.store.conn().unwrap().execute("UPDATE jobs SET payload=json_set(json_remove(payload,'$.availableAt'),'$.deliverImmediately',json('true')) WHERE id=?",[&job.id]).unwrap();
+            }
+            dispatch(&app, &job, true).unwrap();
+            assert!(app.store.finish(&job, &[], "done").unwrap());
+            let count:i64=app.store.conn().unwrap().query_row("SELECT count(*) FROM jobs WHERE json_extract(payload,'$.digestStage')='public' AND json_extract(payload,'$.catalogTopicId')='ai'",[],|r|r.get(0)).unwrap();
+            assert_eq!(count, if immediate { 1 } else { 0 });
+        }
+        drop(app);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

@@ -8,13 +8,27 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::time::Duration as StdDuration;
-pub const PIPELINE_VERSION: &str = "public-agent-editorial-v7-reasoning";
+pub const PIPELINE_VERSION: &str = "public-agent-editorial-v8-selection";
 #[path = "shared_public_catalog.rs"]
 mod catalog_data;
+#[path = "shared_public_history.rs"]
+mod history;
 #[path = "shared_public_inputs.rs"]
 mod inputs;
 #[path = "shared_public_retrieval.rs"]
 mod retrieval;
+#[path = "shared_public_aihot.rs"]
+mod syndicated;
+pub(crate) use history::seen as seen_sources;
+pub(crate) fn first_party(material: &crate::discovery::Material) -> bool {
+    material
+        .discovered_via
+        .as_deref()
+        .and_then(catalog_data::policy)
+        .is_some_and(|p| {
+            p.official_abstract && catalog_data::publisher_matches(&material.url, p.domain)
+        })
+}
 use catalog_data::CATALOG;
 pub use catalog_data::{catalog, match_topics, CatalogTopic};
 pub async fn agent_search(
@@ -34,7 +48,7 @@ pub async fn aihot_cached(app: &App, catalog_id: &str, action: &str) -> Result<V
         return Err(Error::upstream("aihot_disabled", "AIHOT 接入未启用"));
     }
     let request = crate::aihot::public_request(catalog_id, action)?;
-    let key = format!("aihot-v1-{}", hash(request.start().to_string().as_bytes()));
+    let key = format!("aihot-v2-{}", hash(request.start().to_string().as_bytes()));
     let lease = match acquire(app, &key, "aihot")? {
         Reservation::Ready(value) => return Ok(value),
         Reservation::Waiting(Some(value)) => return Ok(value),
@@ -253,7 +267,9 @@ pub fn get(app: &App, key: &str) -> Result<Option<Value>> {
             value["gaps"]
                 .as_array_mut()
                 .map(|g| g.push(json!("公共汇编的缓存保留期已过，原始引文可继续核对")));
-        } else if expires <= Utc::now().timestamp() {
+        } else if syndicated::is_stale(&value, Utc::now())
+            || (expires <= Utc::now().timestamp() && !syndicated::current(&value, Utc::now()))
+        {
             value["cacheStatus"] = json!("stale");
         } else {
             value["cacheStatus"] = json!("ready");
@@ -305,6 +321,9 @@ fn failure_warning(code: &str) -> &'static str {
     }
 }
 pub async fn edition(app: &App, topic_id: &str, language: &str) -> Result<EditionResult> {
+    if topic_id == "ai" && language == "zh-CN" && crate::aihot::enabled() {
+        return syndicated::edition(app).await;
+    }
     edition_at(app, topic_id, language, Utc::now()).await
 }
 async fn edition_at(

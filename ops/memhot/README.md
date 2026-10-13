@@ -166,7 +166,7 @@ RUSTUP_TOOLCHAIN=stable npm exec -- tauri android build --target aarch64 --apk -
 }
 ```
 
-确认已完成客户端验收后，运维显式执行 `python3 <阶段或受控工具目录>/publish-android.py --stage /opt/memhot/deployments/<唯一阶段名>`。工具持有独立发布锁，保存 `old-nginx.conf` 和存在时的 `old-android-arm64.json`。先原子发布不可变 APK/SHA 文件和配置，通过 `nginx -t`、reload、公网完整 APK/校验文件和 `/healthz` 验证后，最后才原子切换 `/opt/memhot/public/updates/android-arm64.json` 并核对公网 feed。HTTP 请求必须直接返回 HTTPS 200，禁止自动跟随重定向。
+确认已完成客户端验收后，运维显式执行 `python3 <阶段或受控工具目录>/publish-android.py --stage /opt/memhot/deployments/<唯一阶段名>`。工具持有独立发布锁，保存 `old-nginx.conf` 和存在时的 `old-android-arm64.json`。先原子发布不可变 APK/SHA 文件和配置，通过 `nginx -t`、reload、新静态路由就绪检查、公网完整 APK/校验文件和 `/healthz` 验证后，最后才原子切换 `/opt/memhot/public/updates/android-arm64.json` 并核对公网 feed。HTTP 请求必须直接返回 HTTPS 200，禁止自动跟随重定向。
 
 成功记录 `verified-public-apk.json` 与 `published.json`；失败自动恢复旧 feed 与配置并记录 `rolled-back.json`。若恢复也失败，`rollback-failed.json` 明确记录需运维处理。阶段为一次性使用；失败重试须建新阶段，保留既有证据与备份。版本 APK 不能被不同内容覆盖；已写入的相同摘要 APK 可复用。该工具不重启 Memhot 服务、不迁移数据库。
 

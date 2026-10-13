@@ -10,8 +10,8 @@ pub const MAX_PDF_BYTES: usize = 8 * 1024 * 1024;
 // Below the relay's 100s deadline and the proxy/client's 120s/130s waits.
 const ASR_TIMEOUT: Duration = Duration::from_secs(90);
 // A complete editorial SSE response can exceed the generic web client's 60s.
-// Keep text generation below the Pi RPC deadline (120s); no automatic replay.
-pub(crate) const MODEL_TIMEOUT: Duration = Duration::from_secs(90);
+// Keep text generation below the Pi RPC deadline (210s); no automatic replay.
+pub(crate) const MODEL_TIMEOUT: Duration = Duration::from_secs(180);
 pub fn blocked(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
@@ -338,7 +338,7 @@ mod tests {
             let mut bytes = [0; 4096];
             connection.read(&mut bytes).await.unwrap();
             tokio::time::pause();
-            tokio::time::advance(Duration::from_secs(61)).await;
+            tokio::time::advance(Duration::from_secs(121)).await;
             assert!(
                 !request.is_finished(),
                 "text calls must not inherit the 60s web limit"
@@ -352,7 +352,7 @@ mod tests {
                     .unwrap();
                 assert_eq!(request.await.unwrap().unwrap().status(), 200);
             } else {
-                tokio::time::advance(Duration::from_secs(30)).await;
+                tokio::time::advance(Duration::from_secs(60)).await;
                 assert!(request.await.unwrap().unwrap_err().is_timeout());
             }
             tokio::time::resume();

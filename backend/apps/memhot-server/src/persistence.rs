@@ -143,8 +143,7 @@ fn commit(
     message: Option<&str>,
 ) -> Result<bool> {
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    let active:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND user_id=? AND status='running' AND attempt=? AND lease_until>=?)",
-        params![job.id,job.user,job.attempt,chrono::Utc::now().timestamp()],|r|r.get(0))?;
+    let active = crate::research::job_active(&tx, job)?;
     if !active {
         return Ok(false);
     }
@@ -285,7 +284,7 @@ fn commit(
                     continue;
                 }
                 if let Some(thought) = value["thoughtId"].as_str() {
-                    if current(&tx, &job.user, "thought", thought)?.is_none() {
+                    if !crate::research::thought_active(&tx, &job.user, thought)? {
                         return Ok(false);
                     }
                 }

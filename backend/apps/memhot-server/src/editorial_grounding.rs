@@ -167,52 +167,6 @@ pub(super) fn approved(stories: Vec<Value>, review: &Value) -> Vec<Value> {
         })
         .collect()
 }
-pub(super) fn layout(draft: &Value, items: &[Value]) -> Value {
-    let ids: HashSet<_> = items.iter().filter_map(|s| s["id"].as_str()).collect();
-    let first = items
-        .first()
-        .map(|s| s["id"].clone())
-        .unwrap_or(Value::Null);
-    let lead = draft["leadStoryId"]
-        .as_str()
-        .filter(|id| ids.contains(id))
-        .map(|id| json!(id))
-        .unwrap_or(first);
-    let mut highlighted = HashSet::new();
-    let highlights: Vec<_> = draft["highlights"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .filter(|id| ids.contains(id) && highlighted.insert(*id))
-        .take(3)
-        .collect();
-    let mut sectioned = HashSet::new();
-    let mut section_ids = HashSet::new();
-    let sections: Vec<_> = draft["sections"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|s| {
-            let title = string(s, "title", 60);
-            let id = string(s, "id", 60);
-            if title.is_empty() || id.is_empty() || !section_ids.insert(id.clone()) {
-                return None;
-            }
-            let stories: Vec<_> = s["storyIds"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_str)
-                .filter(|id| ids.contains(id) && sectioned.insert((*id).to_owned()))
-                .collect();
-            (!stories.is_empty()).then_some(json!({"id":id,"title":title,"storyIds":stories}))
-        })
-        .take(8)
-        .collect();
-    let overview = string(draft, "overview", 3200);
-    json!({"overview":overview,"overviewStatus":if overview.is_empty(){"unavailable"}else{"ready"},"leadStoryId":lead,"highlights":highlights,"sections":sections})
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,20 +234,6 @@ mod tests {
             "facts":[{"index":0,"quote":"available only in a limited preview"}]}]});
         assert!(grounded(&draft, &[snippet]).0.is_empty());
     }
-    #[test]
-    fn overview_layout_only_references_the_validated_set_and_accepts_short_text() {
-        let items = vec![json!({"id":"kept"})];
-        let v = layout(
-            &json!({"overview":"只对已核对事件作简短概览。","leadStoryId":"rejected","highlights":["rejected","kept","kept"],"sections":[{"id":"a","title":"动态","storyIds":["rejected","kept"]}]}),
-            &items,
-        );
-        assert_eq!(v["overviewStatus"], "ready");
-        assert_eq!(v["leadStoryId"], "kept");
-        assert_eq!(v["highlights"], json!(["kept"]));
-        assert_eq!(v["sections"][0]["storyIds"], json!(["kept"]));
-        assert!(!v.to_string().contains("rejected"));
-    }
-
     #[test]
     fn dynamically_discovered_old_unknown_and_future_sources_cannot_be_digest_news() {
         let at = crate::freshness::publication("2026-10-12T12:00:00Z").unwrap();

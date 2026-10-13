@@ -1,0 +1,236 @@
+/* Shared reading geometry for edited daily reports and research documents. */
+.report-attribution {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.reader {
+  max-width: 760px;
+  margin-inline: auto;
+  min-width: 0;
+}
+.report-header {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.report-header h1 {
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.reader-summary {
+  margin: 24px 0;
+}
+.reader-summary .prose {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.9;
+}
+.reader-summary .prose > p:first-child {
+  margin-top: 0;
+}
+.reader-summary .prose > p:last-child {
+  margin-bottom: 0;
+}
+.report-paper {
+  padding: 28px 32px;
+  margin-top: 28px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 22px #302b2209;
+  min-width: 0;
+}
+.report-contents {
+  margin: 0 0 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.report-contents > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 14px;
+}
+.report-contents > summary::-webkit-details-marker {
+  display: none;
+}
+.report-contents > summary small {
+  margin-left: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.report-contents[open] > summary svg {
+  transform: rotate(90deg);
+}
+.report-contents nav {
+  display: grid;
+  padding-top: 8px;
+}
+.report-contents nav a {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 18px;
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.report-contents nav a:hover {
+  color: var(--accent);
+}
+.report-paper h1,
+.report-paper h2,
+.report-paper h3,
+.edition-flashes {
+  scroll-margin-top: 84px;
+  text-wrap: pretty;
+}
+.report-document .prose > :first-child {
+  margin-top: 0;
+}
+.report-document .prose h1,
+.report-document .prose h2 {
+  font-family: var(--reading-font);
+  font-size: 23px;
+  font-weight: 550;
+  margin: 36px 0 16px;
+  line-height: 1.65;
+}
+.report-document .prose h3 {
+  margin: 26px 0 12px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+.report-paper .prose,
+.report-paper .story-summary {
+  font-size: 16px;
+  line-height: 1.95;
+}
+.report-paper .edition-story {
+  padding: 28px 0;
+}
+.report-paper .edition-story:first-child {
+  padding-top: 0;
+}
+.report-paper .edition-story h2 {
+  font-size: 23px;
+  margin: 0 0 16px;
+  line-height: 1.65;
+}
+.report-paper .edition-section-title {
+  margin: 32px 0 0;
+  padding-bottom: 12px;
+  font-size: 14px;
+}
+.report-paper .story-perspective {
+  border-left-width: 1px;
+  margin: 22px 0;
+  padding-left: 16px;
+}
+.report-paper .story-materials {
+  margin: 18px 0 0;
+  border-top: 1px solid var(--line);
+}
+.story-materials .ui-accordion-trigger {
+  padding: 14px 0;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.story-materials .story-source {
+  border-top: 0;
+  padding: 10px 0 16px;
+}
+.report-paper .story-actions {
+  margin-top: 4px;
+  gap: 8px 20px;
+}
+.report-paper .reader-sources {
+  margin: 34px 0 0;
+}
+.report-paper .reader-sources .section-heading {
+  margin-top: 0;
+}
+.report-paper .reader-sources h2 {
+  font-size: 17px;
+}
+.report-paper .unanswered {
+  padding: 20px 0;
+  margin: 28px 0;
+  background: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-block: 22px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.table-scroll table {
+  display: table;
+  width: 100%;
+  overflow: visible;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.table-scroll th {
+  background: var(--subtle);
+  font-weight: 550;
+  white-space: nowrap;
+}
+.table-scroll td {
+  min-width: 100px;
+  vertical-align: top;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+.prose :not(pre) > code {
+  background: var(--subtle);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+.prose a {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .report-paper {
+    padding: 22px 18px;
+    margin-inline: -6px;
+  }
+  .reader .report-header h1 {
+    font-size: 25px;
+  }
+  .report-paper .edition-story h2,
+  .report-document .prose h1,
+  .report-document .prose h2 {
+    font-size: 21px;
+  }
+  .report-paper .prose,
+  .report-paper .story-summary {
+    font-size: 15px;
+  }
+  .reader-summary .prose {
+    font-size: 15px;
+  }
+  .report-paper .edition-story {
+    padding-block: 24px;
+  }
+  .report-paper .story-actions {
+    gap: 8px 12px;
+  }
+}

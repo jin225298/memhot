@@ -59,6 +59,11 @@ export function parseAiHotResult(result, tool) {
   visit(data);
   const attribution = publicUrl(data.report?.attribution?.url ?? data.report?.links?.aihot, true) ?? 'https://aihot.news/';
   const report = data.report;
+  // Keep the licensed finished daily separate from discovery snippets. The host
+  // validates its DTO and attribution again; it must never become original evidence.
+  const dailyReport = tool === 'aihot_get_daily' && isObject(report) ? report : undefined;
+  if (dailyReport && Buffer.byteLength(JSON.stringify(dailyReport)) > 64 * 1024)
+    throw failure('AIHOT_RESPONSE');
   const text = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
   const overview = isObject(report) ? {
     attribution: { name: 'AIHOT', url: attribution },
@@ -73,6 +78,7 @@ export function parseAiHotResult(result, tool) {
     warning: 'AIHOT 编辑概览仅作发现背景，不是已核对原文证据，不能据此生成事实引文。',
   } : undefined;
   return { type: 'complete', sources, stories, attribution: { name: 'AIHOT', url: attribution },
+    ...(dailyReport ? { dailyReport } : {}),
     ...(overview ? { overview } : {}),
     warning: 'AIHOT 聚合摘要仅作发现；请读取原始链接后再引用事实，不代表已读原文。' };
 }

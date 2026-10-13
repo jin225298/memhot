@@ -85,6 +85,7 @@ pub fn schedule(app: &App) -> Result<()> {
 }
 pub fn schedule_at(app: &App, at: chrono::DateTime<chrono::Utc>) -> Result<()> {
     for user in app.store.users()? {
+        crate::digest::schedule_publication(app, &user, at)?;
         let p = app.store.profile(&user)?;
         let tz = p["timezone"]
             .as_str()

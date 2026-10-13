@@ -5,12 +5,15 @@ use crate::{
     id, now, persistence, App,
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
 use rusqlite::params;
+use serde::Deserialize;
 use serde_json::{json, Value};
+#[path = "thought_cognition.rs"]
+mod memories;
 
 pub fn fingerprint(text: &str) -> String {
     crate::hash(
@@ -56,9 +59,25 @@ pub fn edit(value: &mut Value, input: &Value) -> Result<()> {
             "title" | "question" | "summary" => {
                 let text = v
                     .as_str()
-                    .filter(|s| !s.trim().is_empty() && s.chars().count() <= 3000)
+                    .filter(|s| {
+                        (key == "summary" || !s.trim().is_empty()) && s.chars().count() <= 3000
+                    })
                     .ok_or_else(|| Error::bad("话题内容须为1至3000字"))?;
                 value[key] = json!(text.trim());
+                if !edited.contains(&json!(key)) {
+                    edited.push(json!(key));
+                }
+            }
+            "category" => {
+                let text = v
+                    .as_str()
+                    .filter(|s| s.trim().chars().count() <= 40)
+                    .ok_or_else(|| Error::bad("分类须为不超过40字的文字"))?;
+                value[key] = json!(if text.trim().is_empty() {
+                    "未分类"
+                } else {
+                    text.trim()
+                });
                 if !edited.contains(&json!(key)) {
                     edited.push(json!(key));
                 }
@@ -117,12 +136,14 @@ pub async fn create(
         .or_else(|| input["title"].as_str())
         .filter(|s| !s.trim().is_empty())
         .ok_or_else(|| Error::bad("请填写话题或问题"))?;
-    let mut value = json!({"id":id(),"title":crate::clip(question,80),"question":question,"summary":question,"sourceIds":[],"evidenceRefs":[],"status":"open","origin":"manual","analysisStatus":"ready","createdAt":now()});
+    let mut value = json!({"id":id(),"title":crate::clip(question,80),"question":question,"summary":question,"sourceIds":[],"evidenceRefs":[],"status":"open","origin":"manual","category":"未分类","analysisStatus":"ready","createdAt":now()});
     edit(&mut value, &input)?;
     let mut conn = app.store.conn()?;
     let tx = conn.transaction()?;
     validate_sources(&tx, &user, &value)?;
     persistence::put(&tx, &user, "thought", &value)?;
+    crate::research::cancel_archived(&tx, &user, &value)?;
+    memories::manual_interest(&tx, &user, &value, Some(&input))?;
     crate::daily::enqueue_today(&tx, &user)?;
     tx.commit()?;
     Ok(Json(value))
@@ -137,22 +158,60 @@ pub async fn update(
     let tx = conn.transaction()?;
     let mut value =
         persistence::current(&tx, &user, "thought", &key)?.ok_or_else(Error::missing)?;
+    if value["status"] == "deleted" {
+        return Err(Error::missing());
+    }
     check_revision(&value, &input)?;
+    let explicit_content: serde_json::Map<String, Value> = ["title", "question", "summary"]
+        .into_iter()
+        .filter_map(|field| {
+            input[field]
+                .as_str()
+                .filter(|text| value[field].as_str().unwrap_or_default() != text.trim())
+                .map(|text| (field.to_owned(), json!(text.trim())))
+        })
+        .collect();
     edit(&mut value, &input)?;
     validate_sources(&tx, &user, &value)?;
     persistence::put(&tx, &user, "thought", &value)?;
+    crate::research::cancel_archived(&tx, &user, &value)?;
+    memories::manual_interest(
+        &tx,
+        &user,
+        &value,
+        (!explicit_content.is_empty()).then_some(&json!(explicit_content)),
+    )?;
     crate::daily::enqueue_today(&tx, &user)?;
     tx.commit()?;
     Ok(Json(value))
+}
+#[derive(Deserialize)]
+pub struct DeleteOptions {
+    preference: Option<String>,
+    revision: Option<u64>,
 }
 pub async fn delete(
     State(app): State<App>,
     User(user): User,
     Path(key): Path<String>,
+    Query(options): Query<DeleteOptions>,
 ) -> Result<StatusCode> {
+    if !matches!(options.preference.as_deref(), None | Some("none" | "less")) {
+        return Err(Error::bad("删除偏好无效"));
+    }
     let mut conn = app.store.conn()?;
-    let tx = conn.transaction()?;
-    let value = persistence::current(&tx, &user, "thought", &key)?.ok_or_else(Error::missing)?;
+    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    let Some(value) = persistence::current(&tx, &user, "thought", &key)? else {
+        return if persistence::tombstoned(&tx, &user, "thought", &key)? {
+            Ok(StatusCode::NO_CONTENT)
+        } else {
+            Err(Error::missing())
+        };
+    };
+    check_revision(&value, &json!({"revision":options.revision}))?;
+    if options.preference.as_deref() == Some("less") {
+        memories::deletion_preference(&tx, &user, &value)?;
+    }
     persistence::tombstone(&tx, &user, "thought", &value)?;
     let conversations: Vec<String> = {
         let mut stmt=tx.prepare("SELECT id FROM records WHERE user_id=? AND kind='conversation' AND (json_extract(data,'$.thoughtId')=? OR json_extract(data,'$.reportId') IN(SELECT id FROM records WHERE user_id=? AND kind='report' AND json_extract(data,'$.thoughtId')=?))")?;

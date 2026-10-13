@@ -2,6 +2,8 @@
 
 日报编辑流程参考 [AIHOT](https://github.com/KKKKhazix/AIHOT)，参考版本 e36480d548aaa1c8461dc93b7b940559b6dd7099（2026-10-12）。其两轮独立筛选、事件归并、结论优先摘要、每日编排与来源层级启发了 Memhot 的独立实现。MIT 许可全文见 [AIHOT-MIT.txt](licenses/AIHOT-MIT.txt)。这份开源许可不代表 AIHOT 在线服务数据的使用授权。
 
+2026-10-13 对照版本 `652bd6bf4190df0030824dd86a982ea96f5623d5` 的 `reports/edition.ts`、`reports/compose.ts`、`industry/selection.ts` 与评分提示词，实现 `editorial_selection.rs`：两份独立评分、来源门槛、来源均衡、头条摘要直接复用和规则分栏。没有移植其 PostgreSQL 事件关系库；当前跨期去重基于已发表来源 URL。经授权的 AI 成品日报直接通过 MCP 同步，标明 AIHOT 归属，未冒充 Memhot 自行写作或完成原文事实核查。
+
 0.3.3 新增 [AIHOT 官方 MCP](https://aihot.news/agent?tab=mcp) 发现渠道。产品运营方已确认获得适用书面授权；部署仅在 `MEMHOT_AIHOT_ENABLED=1` 时启用。接口归属保留为 AIHOT，原文链接与原文作者归属保留；聚合摘要、日报/周报/月报编辑概览不能冒充已读原文或事实引文。具体作用域、缓存与关闭方式见 [AIHOT MCP 接入](aihot-mcp.md)。原有独立实现及官方 RSS、公开原文检索仍可单独运行。
 
 MCP 客户端直接使用 Pi 官方 `@earendil-works/pi-mcp` `1.1.0`（MIT）。锁文件固定官方 npm 注册表地址与 SHA512 完整性值；运行包保留依赖自身许可证。客户端代码不复制进 Memhot，服务端以独立进程和受控 RPC 传输调用其 API。

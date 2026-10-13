@@ -34,6 +34,7 @@ export interface Source {
 }
 export interface Thought {
   id: string;
+  category?: string;
   title: string;
   question: string;
   quote: string;
@@ -91,7 +92,8 @@ export interface Evidence {
   retrievedAt: string;
   excerpt: string;
   stance: "support" | "counter" | "context";
-  retrievalKind?: "page" | "metadata_or_abstract";
+  retrievalKind?: "page" | "metadata_or_abstract" | "search_snippet";
+  contentOrigin?: "external_editorial";
   citations?: {
     claim: string;
     quote: string;
@@ -114,6 +116,8 @@ export interface EditorialStory {
 }
 export interface Report {
   id: string;
+  contentOrigin?: "external_editorial";
+  attribution?: { name: string; url: string };
   title: string;
   kind: "research" | "digest";
   question?: string;

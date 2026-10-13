@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 const paths = {
+  archive: "M3 3h18v5H3Zm2 5v13h14V8M9 12h6",
   bookmark: "M6 3h12v19l-6-4-6 4Z",
   search: "M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm5.3-2.2L22 22",
   edit: "m16 3 5 5M3 21l5-1L21 7a2 2 0 0 0-4-4L4 16Zm1-5 4 4",

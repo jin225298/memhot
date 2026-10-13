@@ -133,7 +133,7 @@ class PublicationTests(unittest.TestCase):
 
     def command(self, *args):
         self.events.append(tuple(args))
-        return ""
+        return "200" if args[:2] == ("curl", "--head") else ""
 
     def copy(self, source, target, **kwargs):
         self.events.append(("write", target))
@@ -259,6 +259,26 @@ class PublicationTests(unittest.TestCase):
 
 
 class HttpTests(unittest.TestCase):
+    def test_route_waits_for_new_workers_without_retrying_publication(self):
+        with patch.object(publisher, "command", side_effect=["404", "200"]) as command, \
+                patch.object(publisher.time, "sleep") as sleep:
+            publisher.await_static_route(update()["url"])
+        self.assertEqual(command.call_count, 2)
+        sleep.assert_called_once_with(1)
+        self.assertNotIn("--location", command.call_args.args)
+
+    def test_route_wait_is_bounded_and_does_not_accept_redirects(self):
+        with patch.object(publisher, "command", return_value="404") as command, \
+                patch.object(publisher.time, "sleep") as sleep, \
+                self.assertRaisesRegex(ValueError, "did not become ready"):
+            publisher.await_static_route(update()["url"])
+        self.assertEqual(command.call_count, 6)
+        self.assertEqual(sleep.call_count, 5)
+        with patch.object(publisher, "command", return_value="302") as command, \
+                self.assertRaisesRegex(ValueError, "unexpected static route"):
+            publisher.await_static_route(update()["url"])
+        self.assertEqual(command.call_count, 1)
+
     def test_redirect_is_rejected_and_curl_does_not_follow_redirects(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "download"

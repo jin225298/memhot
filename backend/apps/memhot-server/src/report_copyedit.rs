@@ -70,12 +70,6 @@ pub(crate) async fn reasoning(
     apply_reasoning(draft, &revised)
 }
 
-pub(crate) async fn digest(app: &App, scope: &Scope, stories: &[Value]) -> Result<Vec<Value>> {
-    let revised = revise(app, scope, "digest", json!({"stories":digest_input(stories)}),
-        "仅返回JSON {\"stories\":[{\"id\":\"原故事ID\",\"title\":\"标题\",\"summary\":\"摘要\",\"whyItMatters\":\"具体且适度的编辑解读\",\"readingGuide\":\"核查角度\",\"limitations\":\"明确适用边界\"}]}。每个原故事返回一项，禁止新增或删除故事。不能修改facts、引文、ID、日期、reportingKind或来源。每个故事须返回id。只能修改whyItMatters、readingGuide、limitations三个分析字段；title和summary作为已提供的上下文，不能修改。三个分析字段中只输出需要修改的字段，正确的字段必须省略；需要改的字段写完整替换文字，不能用省略号或差异说明。不要重复正确的正文，全部修改控制在1800字以内。任何新比较事实在已有来源中缺少直接证据就删除，不能藏进‘编辑推断’。")
-        .await?;
-    apply_digest(stories, &revised)
-}
 // The copy editor operates on draft interpretations, not raw web pages. Full
 // original quotes and context remain mandatory in the subsequent evidence review.
 fn reasoning_input(input: &Value) -> Value {
@@ -83,11 +77,6 @@ fn reasoning_input(input: &Value) -> Value {
         "reviewedClaims":input["reviewedClaims"].as_array().into_iter().flatten().map(|c|json!({
             "index":c["index"],"text":c["text"],"quote":c["quote"],"type":c["type"],"stance":c["stance"],"publishedAt":c["publishedAt"]
         })).collect::<Vec<_>>()})
-}
-fn digest_input(items: &[Value]) -> Vec<Value> {
-    items.iter().map(|s|json!({"id":s["id"],"title":s["title"],"summary":s["summary"],
-        "facts":s["facts"],"publishedAt":s["publishedAt"],"reportingKind":s["reportingKind"],
-        "whyItMatters":s["whyItMatters"],"readingGuide":s["readingGuide"],"limitations":s["limitations"]})).collect()
 }
 fn invalid() -> Error {
     Error::upstream(
@@ -151,29 +140,6 @@ fn apply_reasoning(draft: &Value, revision: &Value) -> Result<Value> {
     }
     Ok(result)
 }
-fn apply_digest(stories: &[Value], revision: &Value) -> Result<Vec<Value>> {
-    let revisions = revision["stories"].as_array().ok_or_else(invalid)?;
-    if stories.len() != revisions.len() {
-        return Err(invalid());
-    }
-    stories
-        .iter()
-        .map(|story| {
-            let id = story["id"].as_str().ok_or_else(invalid)?;
-            let matches: Vec<_> = revisions.iter().filter(|r| r["id"] == id).collect();
-            if matches.len() != 1 {
-                return Err(invalid());
-            }
-            let mut result = story.clone();
-            patch(
-                &mut result,
-                matches[0],
-                &["whyItMatters", "readingGuide", "limitations"],
-            )?;
-            Ok(result)
-        })
-        .collect()
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,23 +152,6 @@ mod tests {
             editing["reviewedClaims"][0]["quote"],
             input["reviewedClaims"][0]["quote"]
         );
-    }
-    #[test]
-    fn digest_editor_receives_evidence_and_chronology_without_editing_authority() {
-        let story = json!({"id":"story","summary":"A product announcement",
-            "facts":[{"evidenceId":"source","quote":"Available only to trial participants."}],
-            "publishedAt":"2025-01-01","reportingKind":"retrospective"});
-        let editing = digest_input(&[story.clone()]);
-        for key in ["facts", "publishedAt", "reportingKind"] {
-            assert_eq!(editing[0][key], story[key]);
-        }
-        let revised = apply_digest(
-            &[story.clone()],
-            &json!({"stories":[{"id":"story",
-            "facts":[],"publishedAt":"2026-10-13","reportingKind":"development"}]}),
-        )
-        .unwrap();
-        assert_eq!(revised[0], story);
     }
     #[test]
     fn replay_identity_ignores_fetch_clocks_but_tracks_publication_and_content() {
@@ -223,34 +172,6 @@ mod tests {
             identity("contract", &original),
             identity("changed contract", &original)
         );
-    }
-    #[test]
-    fn sparse_edits_preserve_untouched_content() {
-        let original = json!({"id":"s","title":"正确标题","summary":"有条件的结果","whyItMatters":"过强判断","facts":[{"quote":"source"}]});
-        let out = apply_digest(
-            &[original.clone()],
-            &json!({"stories":[{"id":"s","whyItMatters":"适用范围有限"}]}),
-        )
-        .unwrap();
-        assert_eq!(out[0]["summary"], original["summary"]);
-        assert_eq!(out[0]["title"], original["title"]);
-        assert_eq!(out[0]["facts"], original["facts"]);
-        assert_eq!(out[0]["whyItMatters"], "适用范围有限");
-    }
-    #[test]
-    fn revisions_cannot_replace_evidence_or_hide_failed_items() {
-        let original = json!({"id":"s","facts":[{"quote":"Original quotation"}],"publishedAt":"2026-10-12","reportingKind":"analysis"});
-        let edit = json!({"stories":[{"id":"s","title":"标题","summary":"摘要","whyItMatters":"意义","readingGuide":"核对方法","limitations":"样本有限","facts":[],"publishedAt":"2026-10-13","reportingKind":"development"}]});
-        let out = apply_digest(&[original.clone()], &edit).unwrap();
-        for key in ["facts", "publishedAt", "reportingKind"] {
-            assert_eq!(out[0][key], original[key]);
-        }
-        assert!(apply_digest(&[original.clone()], &json!({"stories":[]})).is_err());
-        assert!(apply_digest(
-            &[original],
-            &json!({"stories":[edit["stories"][0],edit["stories"][0]]})
-        )
-        .is_err());
     }
     #[test]
     fn reasoning_requires_complete_actions_and_preserves_citation_indices() {

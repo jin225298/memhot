@@ -116,7 +116,9 @@ fn owned_ids(
 }
 pub fn incomplete(report: &Value) -> bool {
     report["status"] == "incomplete"
-        || (report["kind"] == "digest" && stories(report).next().is_none())
+        || (report["kind"] == "digest"
+            && stories(report).next().is_none()
+            && report["editorial"]["quietIssue"] != true)
         || (report["kind"] == "research" && report["claims"].as_array().is_some_and(Vec::is_empty))
 }
 fn summary(mut report: Value, saved: bool) -> Value {
