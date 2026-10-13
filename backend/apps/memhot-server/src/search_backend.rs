@@ -138,4 +138,13 @@ mod tests {
         assert_eq!(found[0].publication_source, "search_reported_publication");
         assert!(decode(&json!({"error":"private body"})).is_err());
     }
+    #[test]
+    fn full_free_batch_is_not_cut_to_plugin_or_old_host_limits() {
+        let results: Vec<_> = (0..251).map(|i| json!({"url":format!("https://example.org/{i}"),"title":format!("Result {i}"),"content":"Unverified search summary"})).collect();
+        let (found, _) = decode(&json!({"results":results})).unwrap();
+        assert_eq!(found.len(), 251);
+        assert!(found.iter().all(|m| !m.fulltext));
+        assert!(found.iter().any(|m| m.url.ends_with("/250")));
+    }
+
 }

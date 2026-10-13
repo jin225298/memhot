@@ -381,6 +381,14 @@ pub async fn search(query: &str) -> Result<Vec<Material>> {
         return Err(Error::bad("公开搜索词须为1至300字"));
     }
     tokio::time::timeout(TOTAL_LIMIT, async {
+        // The plugin's numResults contract trims each response to 20. Prefer our
+        // existing operator-owned decoder so every valid SearXNG result reaches
+        // the paged candidate pool. Pi still owns reads and fallback discovery.
+        if crate::search_backend::configured() {
+            if let Ok((found, _warnings)) = crate::search_backend::search(query, false).await {
+                if !found.is_empty() { return Ok(found); }
+            }
+        }
         let degoog = Url::parse("https://degoog.org/api/search").map_err(|_| Error::internal())?;
         let first = run(json!({"type":"start","action":"search","query":query,"provider":"degoog"}), Policy { target: degoog, read: false }).await;
         if let Ok(found) = &first { if !found.is_empty() { return first; } }
