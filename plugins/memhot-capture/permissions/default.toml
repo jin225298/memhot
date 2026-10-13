@@ -1,0 +1,3 @@
+[default]
+description = "Capture commands for the trusted bundled Memhot application."
+permissions = ["allow-configure", "allow-get-config", "allow-start", "allow-stop", "allow-status", "allow-open-battery-settings", "allow-clear-pending", "allow-request-notifications", "allow-set-asr-mode", "allow-download-local-model", "allow-cancel-local-model-download", "allow-remove-local-model", "allow-retry-pending", "allow-get-launch-target"]

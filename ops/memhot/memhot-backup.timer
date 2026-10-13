@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily bounded Memhot database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=memhot-backup.service
+
+[Install]
+WantedBy=timers.target

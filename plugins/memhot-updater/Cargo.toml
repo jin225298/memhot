@@ -1,0 +1,17 @@
+[package]
+name = "tauri-plugin-memhot-updater"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+links = "tauri-plugin-memhot-updater"
+
+[dependencies]
+serde_json.workspace = true
+tauri = { version = "2", default-features = false }
+
+[dev-dependencies]
+tauri = { version = "2", default-features = false, features = ["test"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

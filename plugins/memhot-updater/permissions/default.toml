@@ -1,0 +1,9 @@
+[default]
+description = "Memhot updates from the trusted release channel, with system installation confirmation."
+permissions = [
+    "allow-get-status",
+    "allow-check-update",
+    "allow-download-update",
+    "allow-cancel-download",
+    "allow-install-update",
+]

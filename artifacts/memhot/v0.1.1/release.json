@@ -1,0 +1,51 @@
+{
+  "version": "0.1.1",
+  "versionCode": 1001,
+  "package": "com.angelkang.memhot",
+  "architecture": "arm64-v8a",
+  "apkFile": "../memhot-0.1.1-arm64.apk",
+  "url": "https://memhot.angelkang.com/downloads/memhot-0.1.1-arm64.apk",
+  "sizeBytes": 10914847,
+  "sha256": "9b19db15337678a3b3d4fde8c57f727a256aa1aba02f60f38cf834009f4cca43",
+  "certificateSha256": "dff1d69e01b7a39c416b27b9ad968ef01416632c8996c49e4e502a59e67c4356",
+  "verification": {
+    "signatureV2": true,
+    "signatureV3": true,
+    "releaseNotDebuggable": true,
+    "zipAlignment16KiB": true,
+    "allElfLoadAlignment16KiB": true,
+    "upgradeFrom": "0.1.0/1000",
+    "firstInstallTimePreserved": true,
+    "firstInstallTime": "2026-10-12 02:05:41",
+    "native": {
+      "device": "API36 ARM64 emulator Memhot_API_36_arm64",
+      "hostAudioDisabled": true,
+      "hardwareBackKeepsRecording": true,
+      "edgeBackKeepsRecording": true,
+      "verifiedScreenOffSeconds": 60,
+      "sameProcessAndForegroundService": true,
+      "uiStopRemovesForegroundService": true,
+      "notificationStopRemovesForegroundService": true,
+      "sourceToThoughtsToCaptureChipShowsStop": true,
+      "externalOriginalUsesChrome": "https://www.isca-archive.org/interspeech_2025/wang25b_interspeech.html",
+      "existingDigestReadReturnPreservesCategory": true,
+      "emulatorStoppedAfterValidation": true
+    },
+    "publicDownloadMatched": true,
+    "previousApkPreserved": true
+  },
+  "buildAssets": [
+    "index-wj6rGn6c.js",
+    "index-C1qLzQ2H.css"
+  ],
+  "server": {
+    "version": "0.1.1",
+    "sha256": "baf0bc0448a4451e8ca4a11d026f3e4971701317432ea4407d8fdc546466114c",
+    "release": "0.1.1-20261012-baf0bc04"
+  },
+  "limitations": [
+    "一加真机后台限制和8小时功耗未实测",
+    "16KiB设备运行未实测；本轮检查APK ZIP与ELF对齐",
+    "截图均为合成QA及公开论文内容，不含正式会议/模型凭据"
+  ]
+}

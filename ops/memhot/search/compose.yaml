@@ -1,0 +1,35 @@
+name: memhot-search
+services:
+  search:
+    image: docker.io/searxng/searxng@sha256:ddd642cae6eac75412938fd846ddbf440a2df029cfeae8a562b8b205f4e35e25
+    container_name: memhot-search
+    restart: unless-stopped
+    user: "977:977"
+    ports:
+      - "127.0.0.1:8791:8080"
+    environment:
+      FORCE_OWNERSHIP: "false"
+      GRANIAN_WORKERS: "1"
+      GRANIAN_BLOCKING_THREADS: "2"
+      GRANIAN_ACCESS_LOG: "false"
+      GRANIAN_LOG_LEVEL: "error"
+    volumes:
+      - ./config:/etc/searxng:ro
+      - ./data:/var/cache/searxng
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    logging:
+      driver: none
+    healthcheck:
+      test: [CMD, /usr/local/searxng/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

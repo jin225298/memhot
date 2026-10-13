@@ -1,0 +1,20 @@
+[package]
+name = "memhot-app"
+version = "0.3.3"
+description = "Memhot personal thinking and research companion"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "memhot_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-memhot-capture = { path = "../../../plugins/memhot-capture" }
+tauri-plugin-memhot-updater = { path = "../../../plugins/memhot-updater" }
+tauri-plugin-opener = "=2.5.3"

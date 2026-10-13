@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.angelkang.memhot",
+  "version": "0.3.3",
+  "versionCode": 1006,
+  "minSdk": 24,
+  "abi": "arm64-v8a",
+  "url": "https://memhot.angelkang.com/downloads/memhot-0.3.3-arm64.apk",
+  "size": 44012186,
+  "sha256": "0bfad48306e462e5d021cc1d126cf06b2b6e8d4423e86a6a9a8a8d18ebd7edd2",
+  "notes": [
+    "个人偏好中新增应用更新，可检查、下载并安装新版本。",
+    "下载支持后台继续，更新保留账号和资料。",
+    "安装前校验文件与签名，录音中会先提示结束录音。",
+    "语音同步更及时，失败会显示原因，并可继续处理。"
+  ],
+  "publishedAt": "2026-10-12T15:00:30Z"
+}

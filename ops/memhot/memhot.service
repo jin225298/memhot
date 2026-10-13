@@ -1,0 +1,41 @@
+[Unit]
+Description=Memhot personal thinking and research API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=memhot
+Group=memhot
+WorkingDirectory=/var/lib/memhot
+ExecStart=/opt/memhot/current/memhot-server serve
+Environment=MEMHOT_DATA_DIR=/var/lib/memhot
+Environment=MEMHOT_BIND=127.0.0.1:8790
+StateDirectory=memhot
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+MemoryHigh=192M
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=64
+LimitNOFILE=4096
+Nice=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/memhot
+
+[Install]
+WantedBy=multi-user.target

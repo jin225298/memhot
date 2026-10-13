@@ -1,0 +1,185 @@
+.thought-list {
+  padding-top: 8px;
+}
+.thought-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 25px 2px;
+}
+.thought-row-content {
+  flex: 1;
+  min-width: 0;
+}
+.thought-row h2 {
+  font-size: 17px;
+  font-weight: 500;
+}
+.thought-row p {
+  font-size: 13px;
+  line-height: 1.9;
+  margin: 9px 0 15px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.thought-row > svg {
+  color: var(--muted);
+}
+.thought-row .detail-meta {
+  font-size: 11px;
+}
+.thought-detail > h1 {
+  font-family: var(--reading-font);
+  font-size: 28px;
+  line-height: 1.7;
+}
+.thought-detail > .detail-meta {
+  margin: 17px 0 23px;
+}
+.thought-question {
+  font-size: 16px;
+  line-height: 1.95;
+  margin-bottom: 25px;
+}
+.original-record {
+  border-block: 1px solid var(--line);
+  color: var(--muted);
+}
+.original-record summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 55px;
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+.original-record summary > svg:last-child {
+  margin-left: auto;
+}
+.original-record[open] summary > svg:last-child {
+  transform: rotate(90deg);
+}
+.original-record blockquote {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.question-section {
+  margin: 30px 0;
+}
+.question-section .section-heading {
+  margin-top: 0;
+}
+.open-questions {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.open-questions li {
+  position: relative;
+  font-size: 14px;
+  line-height: 1.9;
+  padding: 11px 0 11px 20px;
+}
+.open-questions li::before {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  left: 2px;
+  top: 22px;
+}
+.thought-details {
+  margin: 20px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.thought-details summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 12px;
+}
+.thought-details summary span {
+  font-size: 11px;
+  margin-left: 8px;
+}
+.thought-details ul {
+  padding-left: 20px;
+  line-height: 1.9;
+}
+.related-reading {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.related-reading > span {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.related-reading svg {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.related-reading small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 8px;
+}
+.section-note {
+  font-size: 13px;
+  padding: 15px 0;
+}
+.thought-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 35px 0 15px;
+}
+.more-actions {
+  position: relative;
+  color: var(--muted);
+  font-size: 12px;
+}
+.more-actions > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 14px 8px;
+}
+.more-actions > div {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 10;
+}
+.more-actions button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}

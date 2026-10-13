@@ -1,0 +1,18 @@
+[package]
+name = "asr-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = "0.1"
+reqwest = { workspace = true, features = ["stream", "multipart"] }
+base64 = { workspace = true }
+audio-contracts = { path = "../audio-contracts" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "test-util"] }

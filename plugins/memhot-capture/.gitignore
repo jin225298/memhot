@@ -1,0 +1,4 @@
+/android/build/
+/android/.tauri/
+/android/.gradle/
+/android/local.properties

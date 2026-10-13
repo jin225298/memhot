@@ -1,0 +1,20 @@
+[package]
+name = "model-runtime"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agent-contracts = { path = "../agent-contracts" }
+async-trait.workspace = true
+provider-config = { path = "../provider-config" }
+reqwest = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

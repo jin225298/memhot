@@ -1,0 +1,192 @@
+.settings-page {
+  max-width: 720px;
+}
+.settings-section {
+  padding: 26px 0;
+}
+.settings-section > h2 {
+  margin-bottom: 20px;
+}
+.settings-section > .muted {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.settings-section .section-heading {
+  margin: 0 0 16px;
+}
+.settings-page label,
+.connect-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: 9px;
+  margin: 17px 0;
+  line-height: 1.5;
+}
+.settings-page input,
+.settings-page select,
+.settings-page textarea,
+.connect-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  resize: vertical;
+}
+.settings-page textarea {
+  line-height: 1.8;
+}
+.field-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.85;
+  margin: 10px 0;
+}
+.form-grid,
+.model-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+.full-row {
+  grid-column: 1/-1;
+}
+.configured-label {
+  font-size: 11px;
+  color: var(--accent);
+}
+.settings-save {
+  padding: 24px 0 32px;
+  border-top: 1px solid var(--line);
+}
+.account-settings > .meta {
+  margin-bottom: 22px;
+  overflow-wrap: anywhere;
+}
+.account-settings > .text-button {
+  margin-left: 15px;
+}
+.connect-page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  max-width: 1180px;
+  margin: auto;
+  align-items: center;
+  gap: 90px;
+  padding: 65px;
+}
+.connect-intro .wordmark {
+  margin-bottom: 65px;
+}
+.connect-intro h1 {
+  font-size: 36px;
+  line-height: 1.6;
+  letter-spacing: -0.03em;
+}
+.connect-intro > p {
+  margin-top: 22px;
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 2;
+}
+.intro-flow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 48px;
+}
+.intro-flow > span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.intro-flow > span > svg {
+  width: 17px;
+}
+.intro-flow i {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+  max-width: 22px;
+}
+.connect-form {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 32px;
+  border-radius: 14px;
+}
+.connect-form h2 {
+  font-size: 21px;
+  font-weight: 550;
+}
+.connect-form > .muted {
+  font-size: 13px;
+  margin: 12px 0 28px;
+}
+.connect-form .primary {
+  margin-top: 13px;
+}
+.help {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+.help summary {
+  cursor: pointer;
+  line-height: 1.8;
+}
+.help p {
+  margin-top: 12px;
+  line-height: 1.8;
+}
+.privacy-copy {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 24px;
+  padding-top: 21px;
+  border-top: 1px solid var(--line);
+  line-height: 1.9;
+}
+.skeleton {
+  padding: 25px 0;
+  display: grid;
+  gap: 16px;
+}
+.skeleton div {
+  height: 15px;
+  background: var(--line);
+  border-radius: 5px;
+  animation: loading 1.5s ease-in-out infinite;
+}
+.skeleton div:first-child {
+  height: 27px;
+  width: 70%;
+}
+.skeleton div:last-of-type {
+  width: 85%;
+}
+@keyframes loading {
+  50% {
+    opacity: 0.45;
+  }
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.settings-tabs {
+  margin-bottom: 4px;
+}
+.settings-section + .settings-section:not([hidden]) {
+  border-top: 1px solid var(--line);
+}

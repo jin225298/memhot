@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-launch-target"
+description = "Enables the get_launch_target command without any pre-configured scope."
+commands.allow = ["get_launch_target"]
+
+[[permission]]
+identifier = "deny-get-launch-target"
+description = "Denies the get_launch_target command without any pre-configured scope."
+commands.deny = ["get_launch_target"]
