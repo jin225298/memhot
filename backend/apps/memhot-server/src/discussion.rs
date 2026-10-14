@@ -178,6 +178,7 @@ pub async fn discuss(
     Json(input): Json<Value>,
 ) -> Result<Json<Value>> {
     crate::accounts::interaction_rate(&app, &user)?;
+    let _conversation = app.concurrency.conversation(&user)?;
     let request_id = crate::discussion_requests::key(&headers)?;
     if let Some(response) = crate::discussion_requests::begin(&app, &user, &request_id, &input)? {
         return Ok(Json(response));

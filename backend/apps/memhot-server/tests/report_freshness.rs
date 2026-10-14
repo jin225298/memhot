@@ -60,9 +60,14 @@ async fn scheduled_digest_children_run_before_the_same_users_old_research_backlo
     assert_eq!(child.kind, "digest");
     assert_eq!(child.payload["digestStage"], "public");
     assert_eq!(child.payload["availableAt"], "2026-10-13T00:00:00Z");
+    let research = f.app.store.claim().unwrap().unwrap();
+    assert_eq!(
+        research.kind, "research",
+        "digest and research use independent lanes"
+    );
     assert!(
         f.app.store.claim().unwrap().is_none(),
-        "one tenant still has only one running job"
+        "the research lane still serializes this tenant's backlog"
     );
 }
 

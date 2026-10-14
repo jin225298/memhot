@@ -115,7 +115,12 @@ async fn global_admission_bounds_audio_memory_across_accounts() {
 async fn authentication_precedes_audio_admission_and_body_reading() {
     let f = Fixture::new();
     assert_unread(&f.app, "", StatusCode::UNAUTHORIZED).await;
-    assert_eq!(f.app.model_gate.available_permits(), 3);
+    let _chat = f
+        .app
+        .concurrency
+        .model(memhot_server::concurrency::Lane::Chat, Some("test"))
+        .await
+        .unwrap();
     assert_eq!(f.app.asr_gate.available_permits(), 3);
 }
 
@@ -129,13 +134,10 @@ async fn text_capacity_cannot_delay_recovering_a_completed_audio_receipt() {
     let key = format!("audio:{source}");
     ledger::reserve_fingerprinted(&f.app, &uid, None, &key, &hash(&data), "asr", 1).unwrap();
     ledger::settle_request(&f.app, &uid, &key, &Ok("合成转写结果".into())).unwrap();
-    let _text_slots = f
-        .app
-        .model_gate
-        .clone()
-        .acquire_many_owned(3)
-        .await
-        .unwrap();
+    let mut _text_slots = Vec::new();
+    for lane in memhot_server::concurrency::Lane::ALL {
+        _text_slots.push(f.app.concurrency.model(lane, Some("test")).await.unwrap());
+    }
     let response = tokio::time::timeout(
         Duration::from_millis(250),
         api::router(f.app.clone()).oneshot(request_body(&token, "recover", Body::from(data))),

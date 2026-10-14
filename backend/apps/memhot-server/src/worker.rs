@@ -1,5 +1,6 @@
 use crate::{
     audio,
+    concurrency::Lane,
     db::Job,
     error::{Error, Result},
     research, sources, App,
@@ -13,42 +14,64 @@ pub async fn run(app: App) {
     tokio::join!(run_jobs(app.clone()), crate::subscription_worker::run(app));
 }
 async fn run_jobs(app: App) {
+    // Each loop owns exactly one slot. A slow job cannot occupy another lane.
+    tokio::join!(
+        run_lane(app.clone(), Lane::Translation),
+        run_lane(app.clone(), Lane::Digest),
+        run_lane(app.clone(), Lane::Research),
+        run_maintenance(app),
+    );
+}
+async fn run_maintenance(app: App) {
+    let mut tick = tokio::time::interval(Duration::from_secs(60));
+    loop {
+        tick.tick().await;
+        if let Err(e) = schedule(&app) {
+            eprintln!("schedule error code={}", e.code);
+        }
+        if let Err(e) = retention(&app) {
+            eprintln!("retention error code={}", e.code);
+        }
+    }
+}
+async fn run_lane(app: App, lane: Lane) {
     let mut tick = tokio::time::interval(Duration::from_secs(2));
-    let mut maintenance = tokio::time::interval(Duration::from_secs(60));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut running = tokio::task::JoinSet::new();
     loop {
         tokio::select! {
-            _=maintenance.tick()=>{
-                if let Err(e)=schedule(&app){eprintln!("schedule error code={}",e.code);}
-                if let Err(e)=retention(&app){eprintln!("retention error code={}",e.code);}
+            _ = tick.tick() => {},
+            result = running.join_next(), if !running.is_empty() => {
+                if let Some(Err(error)) = result {
+                    eprintln!("job task stopped lane={lane:?} error={error}");
+                }
+            },
+        }
+        if !running.is_empty() {
+            continue;
+        }
+        let job = match app.store.claim_lane(lane) {
+            Ok(Some(job)) => job,
+            Ok(None) => continue,
+            Err(e) => {
+                eprintln!("claim error code={}", e.code);
+                continue;
             }
-            _=tick.tick()=>{},
-            _=running.join_next(),if !running.is_empty()=>{},
-        }
-        while running.len() < 2 {
-            let job = match app.store.claim() {
-                Ok(Some(job)) => job,
-                Ok(None) => break,
-                Err(e) => {
-                    eprintln!("claim error code={}", e.code);
-                    break;
-                }
-            };
-            let app = app.clone();
-            running.spawn(async move {
-                let result = tokio::time::timeout(Duration::from_secs(840), execute(&app, &job))
-                    .await
-                    .unwrap_or_else(|_| Err(Error::upstream("timeout", "任务达到执行时限")));
-                if let Err(error) = result {
-                    let _ = app.store.fail(&job, &error);
-                    mark_source_error(&app, &job, &error);
-                    eprintln!(
-                        "job={} kind={} attempt={} code={}",
-                        job.id, job.kind, job.attempt, error.code
-                    );
-                }
-            });
-        }
+        };
+        let app = app.clone();
+        running.spawn(async move {
+            let result = tokio::time::timeout(Duration::from_secs(840), execute(&app, &job))
+                .await
+                .unwrap_or_else(|_| Err(Error::upstream("timeout", "任务达到执行时限")));
+            if let Err(error) = result {
+                let _ = app.store.fail(&job, &error);
+                mark_source_error(&app, &job, &error);
+                eprintln!(
+                    "job={} kind={} attempt={} code={}",
+                    job.id, job.kind, job.attempt, error.code
+                );
+            }
+        });
     }
 }
 pub async fn execute(app: &App, job: &Job) -> Result<()> {

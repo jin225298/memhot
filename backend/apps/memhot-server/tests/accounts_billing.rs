@@ -178,21 +178,28 @@ fn concurrent_reservation_never_overdraws_and_settlement_is_once() {
     assert_eq!(account["quota"]["reserved"], 0);
 }
 #[tokio::test]
-async fn one_user_cannot_occupy_all_model_slots_and_topups_are_bounded() {
+async fn independent_lanes_limit_duplicate_requests_and_topups_are_bounded() {
     let f = Fixture::new();
     let app = &f.0;
     let (a, _) = auth::create_pair(app, "A", None).unwrap();
     let (b, _) = auth::create_pair(app, "B", None).unwrap();
-    let first = memhot_server::models::permit(app, &a).await.unwrap();
-    let second = memhot_server::models::permit(app, &a).await.unwrap();
+    use memhot_server::concurrency::Lane;
+    let first = memhot_server::models::permit(app, &a, Lane::Research)
+        .await
+        .unwrap();
+    let second = memhot_server::models::permit(app, &a, Lane::Digest)
+        .await
+        .unwrap();
     assert_eq!(
-        memhot_server::models::permit(app, &a)
+        memhot_server::models::permit(app, &a, Lane::Research)
             .await
             .unwrap_err()
             .code,
         "busy"
     );
-    let other = memhot_server::models::permit(app, &b).await.unwrap();
+    let other = memhot_server::models::permit(app, &b, Lane::Chat)
+        .await
+        .unwrap();
     drop((first, second, other));
     for n in 0..5 {
         billing::api::purchase(app, &a, &format!("topup-{n}"), "test_500").unwrap();

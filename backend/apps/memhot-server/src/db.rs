@@ -46,6 +46,7 @@ PRAGMA user_version=1;")?;
             connection
                 .execute_batch("ALTER TABLE users ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0;")?;
         }
+        crate::job_scheduler::migrate(&connection)?;
         crate::accounts::migrate(&connection)?;
         crate::shared_public::migrate(&connection)?;
         crate::subscription_store::migrate(&connection)?;
@@ -161,24 +162,13 @@ PRAGMA user_version=1;")?;
         let rows=stmt.query_map([user],|r|Ok(json!({"id":r.get::<_,String>(0)?,"kind":r.get::<_,String>(1)?,"status":r.get::<_,String>(2)?,"message":r.get::<_,Option<String>>(3)?,"createdAt":r.get::<_,String>(4)?,"requiresChargeConfirmation":r.get::<_,bool>(5)?,"retryable":r.get::<_,bool>(6)?})))?;
         rows.map(|r| r.map_err(Into::into)).collect()
     }
+    /// Select any durable lane, preserving tenant rotation for administrative drains.
     pub fn claim(&self) -> Result<Option<Job>> {
-        let mut conn = self.conn()?;
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let at = chrono::Utc::now().timestamp();
-        let row=tx.query_row("SELECT j.id,j.user_id,j.kind,j.payload,j.attempt FROM jobs j WHERE j.attempt<3 AND ((j.status='queued' AND j.next_at<=?1) OR (j.status='running' AND j.lease_until<?1)) AND NOT EXISTS(SELECT 1 FROM jobs active WHERE active.user_id=j.user_id AND active.status='running' AND active.lease_until>=?1) ORDER BY COALESCE((SELECT last_turn FROM scheduler_turns WHERE user_id=j.user_id),0),CASE WHEN j.status='running' THEN 0 ELSE 1 END,CASE WHEN j.kind='digest' AND (json_extract(j.payload,'$.researchDate') IS NOT NULL OR json_extract(j.payload,'$.deliverImmediately')=1) THEN 0 ELSE 1 END,j.created,j.id LIMIT 1",params![at],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,i64>(4)?))).optional()?;
-        let Some((id, user, kind, payload, attempt)) = row else {
-            return Ok(None);
-        };
-        tx.execute("UPDATE jobs SET status='running',attempt=attempt+1,lease_until=?,message='正在处理' WHERE id=?",params![at+960,id])?;
-        tx.execute("INSERT INTO scheduler_turns(user_id,last_turn) VALUES(?,(SELECT COALESCE(MAX(last_turn),0)+1 FROM scheduler_turns)) ON CONFLICT(user_id) DO UPDATE SET last_turn=excluded.last_turn",[&user])?;
-        tx.commit()?;
-        Ok(Some(Job {
-            id,
-            user,
-            kind,
-            payload: serde_json::from_str(&payload)?,
-            attempt: attempt + 1,
-        }))
+        crate::job_scheduler::claim(self, None)
+    }
+    /// Reserve a durable lane's single global slot across all worker connections.
+    pub fn claim_lane(&self, lane: crate::concurrency::Lane) -> Result<Option<Job>> {
+        crate::job_scheduler::claim(self, Some(lane))
     }
     pub fn finish(&self, job: &Job, records: &[(&str, Value)], message: &str) -> Result<bool> {
         let mut conn = self.conn()?;

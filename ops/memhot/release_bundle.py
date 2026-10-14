@@ -231,6 +231,13 @@ def bundle_verify(stage, release, manifest_sha, save, require_binary=True):
     if receipt.exists():
         previous = json.loads(receipt.read_text())
         if previous.get('release') == str(release) and previous.get('sourceDigest') == source_digest and previous.get('runtime') == runtime and previous.get('dependenciesDigest') == dependency_digest(release / 'agent/node_modules'):
+            # Source/dependency hashes alone do not make a copied cache reusable:
+            # Jiti also binds compiled files to their absolute installation path.
+            template = release / 'agent/node_modules/.cache/memhot-web-jiti-v1/manifest.json'
+            if (not template.is_file()
+                    or json.loads(template.read_text()).get('sdkRoot') != str((release / 'agent').resolve())
+                    or sha(template) != previous.get('transformCache', {}).get('manifestSha256')):
+                raise RuntimeError('SDK transform cache belongs to another release; reseed and verify in a fresh stage')
             return previous
         raise RuntimeError('SDK verification evidence changed; use a fresh private stage')
     home = stage / 'sdk-home'

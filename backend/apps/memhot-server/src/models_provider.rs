@@ -83,18 +83,12 @@ pub type ModelPermits = (
 );
 
 /// Per-user concurrency is independent from durable unknown-result reservations.
-pub async fn permit(app: &App, user: &str) -> Result<ModelPermits> {
-    let user_permit = user_gate(app, user, "text", 2)?
-        .try_acquire_owned()
-        .map_err(|_| Error::upstream("busy", "你的其他请求正在处理，请稍后再试"))?;
-    let global = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
-        app.model_gate.clone().acquire_owned(),
-    )
-    .await
-    .map_err(|_| Error::upstream("busy", "模型正在处理其他任务，请稍后重试"))?
-    .map_err(|_| Error::internal())?;
-    Ok((user_permit, global))
+pub async fn permit(
+    app: &App,
+    user: &str,
+    lane: crate::concurrency::Lane,
+) -> Result<crate::concurrency::Permit> {
+    app.concurrency.model(lane, Some(user)).await
 }
 
 /// Admit before reading a WAV body. Busy requests retain neither audio nor credits.

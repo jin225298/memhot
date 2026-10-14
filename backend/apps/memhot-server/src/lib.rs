@@ -9,6 +9,7 @@ pub mod audio;
 pub mod auth;
 pub mod billing;
 pub mod cognition;
+pub mod concurrency;
 pub mod daily;
 pub mod db;
 pub mod digest;
@@ -25,6 +26,7 @@ mod formation_repair;
 mod formation_windows;
 pub mod freshness;
 pub mod import;
+mod job_scheduler;
 pub mod ledger;
 pub mod mcp_transport;
 pub mod models;
@@ -70,7 +72,7 @@ use std::{path::PathBuf, sync::Arc};
 pub struct App {
     pub store: Arc<db::Store>,
     pub data_dir: Arc<PathBuf>,
-    pub model_gate: Arc<tokio::sync::Semaphore>,
+    pub concurrency: Arc<concurrency::Concurrency>,
     pub asr_gate: Arc<tokio::sync::Semaphore>,
     pub hosted: Arc<serde_json::Value>,
     pub alphaxiv: Arc<Option<alphaxiv::Config>>,
@@ -87,7 +89,7 @@ impl App {
         Ok(Self {
             store: Arc::new(db::Store::open(&dir.join("memhot.sqlite"))?),
             data_dir: Arc::new(dir),
-            model_gate: Arc::new(tokio::sync::Semaphore::new(3)),
+            concurrency: Arc::new(concurrency::Concurrency::default()),
             asr_gate: Arc::new(tokio::sync::Semaphore::new(3)),
             hosted: Arc::new(models::load_hosted()?),
             alphaxiv: Arc::new(alphaxiv::Config::load()?),

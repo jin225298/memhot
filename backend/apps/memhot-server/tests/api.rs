@@ -9,6 +9,39 @@ use memhot_server::{api, audio, now, worker, App};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 #[tokio::test]
+async fn duplicate_chat_is_rejected_before_request_registration_or_billing() {
+    let f = Fixture::new();
+    let (uid, token) = user(&f.app, "A").await;
+    let _active = f.app.concurrency.conversation(&uid).unwrap();
+    let (_, response) = request(
+        &f.app,
+        "POST",
+        "/api/v1/discuss",
+        &token,
+        Some(json!({"message":"并发请求"})),
+    )
+    .await;
+    assert_eq!(response["error"]["code"], "busy");
+    assert!(f
+        .app
+        .store
+        .list(&uid, "discussion_request")
+        .unwrap()
+        .is_empty());
+    let conn = f.app.store.conn().unwrap();
+    for table in ["receipts", "billing_usage"] {
+        let count: i64 = conn
+            .query_row(
+                &format!("SELECT count(*) FROM {table} WHERE user_id=?"),
+                [&uid],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+}
+
+#[tokio::test]
 async fn pairing_tenant_boundaries_and_revocation() {
     let f = Fixture::new();
     let app = &f.app;

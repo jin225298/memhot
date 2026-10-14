@@ -118,7 +118,7 @@ pub async fn queue_translation(
         return Err(crate::billing::exhausted());
     }
     let pending: i64 = tx.query_row(
-        "SELECT count(*) FROM jobs WHERE user_id=? AND status IN ('queued','running')",
+        "SELECT count(*) FROM jobs WHERE user_id=? AND kind='material_translation' AND status IN ('queued','running')",
         [&user],
         |r| r.get(0),
     )?;
@@ -126,7 +126,7 @@ pub async fn queue_translation(
         return Err(Error::new(
             StatusCode::TOO_MANY_REQUESTS,
             "translation_queue_full",
-            "待处理任务已达上限，请等待现有任务完成后重试",
+            "待处理翻译较多，请等待现有翻译完成后重试",
         ));
     }
     let id = crate::id();

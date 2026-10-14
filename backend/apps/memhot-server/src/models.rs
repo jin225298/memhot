@@ -225,17 +225,10 @@ pub async fn public_call(
     let (url, headers, body) = request(c, &messages, true)?;
     let key = hash(serde_json::to_string(&(edition_key, purpose))?.as_bytes());
     let fingerprint = hash(format!("{url}:{}:{body}", c["protocol"]).as_bytes());
-    // Public work shares the global budget and at most one editorial call runs at once.
-    static PUBLIC_GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-    let _editorial = PUBLIC_GATE
-        .get_or_init(|| tokio::sync::Semaphore::new(1))
-        .try_acquire()
-        .map_err(|_| Error::upstream("busy", "公共编辑正在处理其他阶段"))?;
-    let _global =
-        tokio::time::timeout(std::time::Duration::from_secs(30), app.model_gate.acquire())
-            .await
-            .map_err(|_| Error::upstream("busy", "模型正在处理其他任务"))?
-            .map_err(|_| Error::internal())?;
+    let _permit = app
+        .concurrency
+        .model(crate::concurrency::Lane::Digest, None)
+        .await?;
     if let Some(content) =
         crate::public_usage::reserve(app, &key, &fingerprint, crate::public_usage::daily_limit()?)?
     {
@@ -265,7 +258,10 @@ async fn metered_call(
     let (url, headers, body) = request(&c, &messages, structured)?;
     let signature = hash(format!("{purpose}:{request_id}").as_bytes());
     let fingerprint = hash(format!("{url}:{}:{body}", c["protocol"]).as_bytes());
-    let _permit = permit(app, user).await?;
+    let lane = job
+        .map(|job| crate::concurrency::Lane::for_job(&job.kind))
+        .unwrap_or(crate::concurrency::Lane::Chat);
+    let _permit = permit(app, user, lane).await?;
     if let Some(content) =
         crate::ledger::reserve_fingerprinted(app, user, job, &signature, &fingerprint, "text", 1)?
     {

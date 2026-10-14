@@ -6,7 +6,7 @@
 
 审计时根盘余 4.2 GiB、journal 占 3.9 GiB；已按授权清理归档 journal 到 472.7 MiB，根盘增至 7.7 GiB。`/etc/systemd/journald.conf.d/80-memhot-budget.conf` 持久设置 `SystemMaxUse=512M`，已重启日志守护进程读取配置。现有业务服务继续运行；没有删除镜像、容器、卷或业务数据。
 
-当前0.2 Memhot unit 限制256 MiB内存、0.5 CPU、64个任务。0.3候选drop-in将内存软/硬上限调整为256/384 MiB，以容纳官方Pi SDK的单个Node子进程；CPU候选上限暂定一核（100%），任务限制保留。备份限制128 MiB / 0.25 CPU。部署后按实际RSS和worker执行情况复核上限，保持磁盘至少2 GiB空闲。Docker标记的reclaimable空间不是可直接删除的业务资产，不运行全局prune。
+基础 unit 的保守默认值是256 MiB内存、0.5 CPU、64个任务。0.3.12 托管 drop-in 为聊天、翻译、日报、研究各预留一个执行名额，将内存软/硬上限调整为512/768 MiB、CPU 150%、TasksMax 128；四个真实 Pi 会话加网页 worker 的离线并发证明与边界见 [ADR-0012](../../docs/memhot/ADR-0012-workload-concurrency.md)。部署必须应用 drop-in，不能只更新 binary。备份限制128 MiB / 0.25 CPU。部署后按实际RSS和worker执行情况复核上限，保持磁盘至少2 GiB空闲。Docker标记的reclaimable空间不是可直接删除的业务资产，不运行全局prune。
 
 ## 本机构建工具
 

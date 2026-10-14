@@ -7,7 +7,34 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from release_bundle import bundle_check, sha, SDK_PINS, npm_environment, run_unit
+from release_bundle import bundle_check, bundle_verify, sha, SDK_PINS, npm_environment, run_unit
+
+
+class CopiedCacheReceiptTests(unittest.TestCase):
+    def check_cache(self, copied):
+        with tempfile.TemporaryDirectory() as directory:
+            release = Path(directory) / 'new-release'
+            stage = Path(directory) / 'stage'
+            stage.mkdir()
+            manifest = release / 'agent/node_modules/.cache/memhot-web-jiti-v1/manifest.json'
+            manifest.parent.mkdir(parents=True)
+            root = str((release / 'agent').resolve())
+            manifest.write_text(json.dumps({'sdkRoot': root + '-old' if copied else root}))
+            receipt = {'release': str(release), 'sourceDigest': 'source', 'runtime': 'runtime',
+                       'dependenciesDigest': 'deps', 'transformCache': {'manifestSha256': sha(manifest)}}
+            (stage / 'sdk-verified.json').write_text(json.dumps(receipt))
+            # All content hashes match: the copied absolute path is the only difference.
+            with patch('release_bundle.bundle_check', return_value='source'), \
+                    patch('release_bundle.node_check', return_value='runtime'), \
+                    patch('release_bundle.dependency_digest', return_value='deps'):
+                return bundle_verify(stage, release, 'manifest', lambda *_: None)
+
+    def test_exact_installation_receipt_is_reused(self):
+        self.assertEqual(self.check_cache(False)['sourceDigest'], 'source')
+
+    def test_identical_copy_from_old_installation_requires_new_verification(self):
+        with self.assertRaisesRegex(RuntimeError, 'another release'):
+            self.check_cache(True)
 
 
 @unittest.skipUnless(os.geteuid() == 0, 'release ownership checks require root')

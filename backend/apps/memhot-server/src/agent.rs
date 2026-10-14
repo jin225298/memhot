@@ -38,6 +38,14 @@ pub enum Scope {
     },
 }
 impl Scope {
+    pub(crate) fn lane(&self) -> crate::concurrency::Lane {
+        use crate::concurrency::Lane;
+        match self {
+            Self::Public { .. } => Lane::Digest,
+            Self::Private { job: Some(job), .. } => Lane::for_job(&job.kind),
+            Self::Private { job: None, .. } => Lane::Chat,
+        }
+    }
     pub fn private(app: &App, user: &str, job: Option<&Job>, run_id: &str) -> Result<Self> {
         Self::private_at(app, user, job, run_id, app.store.epoch(user)?)
     }
@@ -189,16 +197,12 @@ pub async fn run(app: &App, scope: &Scope, spec: Spec<'_>, context: ToolContext)
         "model":{"protocol":config["protocol"].as_str().unwrap_or("openai"),"model":config["model"]},
         "prompt":prompt.to_string(),"instructions":instructions,
         "tools":if spec.tools {tools::definitions(scope, paper_tools)} else {json!([])},"maxSteps":spec.max_steps,"maxOutputTokens":spec.max_output_tokens});
-    static CHILD_GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-    let _child = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
-        CHILD_GATE
-            .get_or_init(|| tokio::sync::Semaphore::new(1))
-            .acquire(),
-    )
-    .await
-    .map_err(|_| Error::upstream("busy", "研究服务正在处理其他任务，请稍后重试"))?
-    .map_err(|_| Error::internal())?;
+    let owner = match scope {
+        Scope::Private { user, .. } => Some(user.as_str()),
+        Scope::Public { .. } => None,
+    };
+    let _child = app.concurrency.agent(scope.lane(), owner).await?;
+    scope.check(app)?;
     let mut saved = state::load_or_freeze(app, scope, spec.purpose, input, context)?;
     let provider_fingerprint = crate::hash(
         format!(

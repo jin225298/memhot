@@ -253,7 +253,7 @@ pub(crate) async fn raw_call(
     };
     let raw = match scope {
         Scope::Private { user, job, .. } => {
-            let _permit = super::permit(app, user).await?;
+            let _permit = super::permit(app, user, scope.lane()).await?;
             scope.check(app)?;
             if let Some(raw) = crate::ledger::reserve_fingerprinted(
                 app,
@@ -281,16 +281,7 @@ pub(crate) async fn raw_call(
             result?
         }
         Scope::Public { .. } => {
-            static GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-            let _public = GATE
-                .get_or_init(|| tokio::sync::Semaphore::new(1))
-                .try_acquire()
-                .map_err(|_| Error::upstream("busy", "公共编辑正在处理其他调用"))?;
-            let _global =
-                tokio::time::timeout(std::time::Duration::from_secs(30), app.model_gate.acquire())
-                    .await
-                    .map_err(|_| Error::upstream("busy", "模型正在处理其他任务"))?
-                    .map_err(|_| Error::internal())?;
+            let _permit = app.concurrency.model(scope.lane(), None).await?;
             if let Some(raw) = crate::public_usage::reserve(
                 app,
                 &key,

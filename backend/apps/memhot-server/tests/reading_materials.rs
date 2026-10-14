@@ -24,6 +24,26 @@ const MATERIAL: &str = "/api/v1/reports/r1/materials/e1";
 const TRANSLATION: &str = "/api/v1/reports/r1/materials/e1/translation";
 
 #[tokio::test]
+async fn research_backlog_does_not_consume_translation_admission() {
+    let f = Fixture::new();
+    let (owner, token) = user(&f.app, "A").await;
+    put(&f.app, &owner, "report", report());
+    for n in 0..8 {
+        f.app
+            .store
+            .queue(&owner, "research", json!({}), &format!("research-{n}"))
+            .unwrap();
+    }
+    let (status, job) = request(&f.app, "POST", TRANSLATION, &token, Some(json!({}))).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(job["status"], "queued");
+    // Retry returns the original job even while both queues have pending work.
+    let (_, repeated) = request(&f.app, "POST", TRANSLATION, &token, Some(json!({}))).await;
+    assert_eq!(repeated["id"], job["id"]);
+    assert_eq!(f.app.store.jobs(&owner).unwrap().len(), 9);
+}
+
+#[tokio::test]
 async fn materials_require_owned_report_and_exact_evidence_and_label_expiry_and_truncation() {
     let f = Fixture::new();
     let app = &f.app;
