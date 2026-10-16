@@ -141,6 +141,7 @@ pub fn persist_input(
                 t["createdAt"].as_str()
             ],
         )?;
+        crate::thought_days::initialize(&tx, user, t)?;
     }
     tx.execute("INSERT INTO jobs(id,user_id,kind,payload,status,created,dedup) VALUES(?,?,?,?,'queued',?,?)",params![id(),user,kind,json!({"sourceId":source_id,"thoughtId":thought.map(|t|&t["id"])}).to_string(),now(),format!("{kind}:{source_id}")])?;
     tx.commit()?;
@@ -246,5 +247,7 @@ pub async fn feedback(
     crate::daily::enqueue_today(&tx, &user)?;
     tx.commit()?;
     drop(conn);
-    Ok(Json(app.store.get(&user, "thought", &key)?))
+    let mut value = app.store.get(&user, "thought", &key)?;
+    crate::thought_days::annotate(&*app.store.conn()?, &user, &mut value, None)?;
+    Ok(Json(value))
 }

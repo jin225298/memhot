@@ -6,7 +6,7 @@ use crate::{
     profile, research, sources, App,
 };
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{HeaderValue, Method, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
@@ -70,7 +70,13 @@ pub fn router(app: App) -> Router {
         )
         .route(
             "/api/v1/thoughts/{id}",
-            axum::routing::put(crate::topics::update).delete(crate::topics::delete),
+            get(crate::thought_days::get)
+                .put(crate::topics::update)
+                .delete(crate::topics::delete),
+        )
+        .route(
+            "/api/v1/thoughts/{id}/today",
+            post(crate::thought_days::carry),
         )
         .route("/api/v1/device", delete(auth::revoke_device))
         .route("/api/v1/home", get(home))
@@ -186,7 +192,34 @@ async fn delivery(State(app): State<App>, User(user): User) -> Result<Json<Value
         json!({"reports":app.store.list(&user,"report")?.iter().filter(|r|research::available(r)).map(|r|json!({"id":r["id"],"createdAt":r["createdAt"]})).collect::<Vec<_>>()}),
     ))
 }
-async fn home(State(app): State<App>, User(user): User) -> Result<Json<Value>> {
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HomeQuery {
+    thought_scope: Option<String>,
+}
+async fn home(
+    State(app): State<App>,
+    User(user): User,
+    Query(query): Query<HomeQuery>,
+) -> Result<Json<Value>> {
+    let thoughts = match query.thought_scope.as_deref() {
+        Some("today") => {
+            let conn = app.store.conn()?;
+            crate::thought_days::for_date_limited(
+                &conn,
+                &user,
+                &crate::thought_days::today(&conn, &user)?,
+                Some(60),
+            )?
+        }
+        None | Some("all") => app
+            .store
+            .list(&user, "thought")?
+            .into_iter()
+            .filter(|t| t["status"] != "deleted")
+            .collect(),
+        _ => return Err(crate::error::Error::bad("思考范围无效")),
+    };
     let sources: Vec<_> = app
         .store
         .list(&user, "source")?
@@ -214,7 +247,7 @@ async fn home(State(app): State<App>, User(user): User) -> Result<Json<Value>> {
         .collect();
     let conversations:Vec<_>=app.store.list(&user,"conversation")?.iter().map(|c|json!({"id":c["id"],"reportId":c["reportId"],"thoughtId":c["thoughtId"],"updatedAt":c["updatedAt"],"createdAt":c["createdAt"]})).collect();
     Ok(Json(
-        json!({"profile":profile::snapshot(&app, &user)?,"thoughts":app.store.list(&user,"thought")?.into_iter().filter(|t| t["status"] != "deleted").collect::<Vec<_>>(),"reports":reports,"sources":sources,"jobs":app.store.jobs(&user)?,"conversations":conversations}),
+        json!({"profile":profile::snapshot(&app, &user)?,"thoughts":thoughts,"reports":reports,"sources":sources,"jobs":app.store.jobs(&user)?,"conversations":conversations}),
     ))
 }
 async fn clear(State(app): State<App>, User(user): User) -> Result<StatusCode> {

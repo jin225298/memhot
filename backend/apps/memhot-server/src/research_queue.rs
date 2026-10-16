@@ -64,9 +64,10 @@ pub async fn queue(
         }
         targets.push(("research", json!({"thoughtId":thought,"kind":"research"})));
     } else if input["kind"] != "digest" {
-        let mut statement=tx.prepare("SELECT id FROM records WHERE user_id=? AND kind='thought' AND json_extract(data,'$.status') IN ('open','kept') AND coalesce(json_extract(data,'$.researchEligible'),1)=1 ORDER BY created,id")?;
+        let date = crate::thought_days::today(&tx, &user)?;
+        let mut statement=tx.prepare("SELECT id FROM records WHERE user_id=?1 AND kind='thought' AND json_extract(data,'$.status') IN ('open','kept') AND json_extract(data,'$.mergedInto') IS NULL AND coalesce(json_extract(data,'$.researchEligible'),1)=1 AND EXISTS(SELECT 1 FROM thought_days d WHERE d.user_id=records.user_id AND d.thought_id=records.id AND d.local_date=?2) ORDER BY created,id")?;
         let ids = statement
-            .query_map([&user], |r| r.get::<_, String>(0))?
+            .query_map(params![user, date], |r| r.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         for thought in ids {
             targets.push(("research", json!({"thoughtId":thought,"kind":"research"})));

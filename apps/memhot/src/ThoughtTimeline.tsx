@@ -16,6 +16,8 @@ export function ThoughtTimeline({
   expanded,
   onSelect,
   onArchive,
+  onAddToday,
+  scope,
   onDelete,
   pending,
 }: {
@@ -26,6 +28,8 @@ export function ThoughtTimeline({
   expanded: boolean;
   onSelect: (id: string) => void;
   onArchive: (thought: Thought) => void;
+  onAddToday: (thought: Thought) => void;
+  scope: "today" | "history";
   onDelete: (thought: Thought) => void;
   pending: string;
 }) {
@@ -80,7 +84,7 @@ export function ThoughtTimeline({
                             ? `${related} 份研究`
                             : closed
                               ? "已归档"
-                              : "待研究"}
+                              : thought.inToday ? "待研究" : "历史思考"}
                       </span>
                     </div>
                     <h3>{thought.title}</h3>
@@ -92,15 +96,15 @@ export function ThoughtTimeline({
                   <div className="thought-entry-actions">
                     <button
                       className="text-button"
-                      disabled={pending === thought.id}
-                      onClick={() => onArchive(thought)}
+                      disabled={Boolean(pending) || (scope === "history" && thought.inToday === true)}
+                      onClick={() => scope === "history" ? onAddToday(thought) : onArchive(thought)}
                     >
-                      <Icon name={closed ? "refresh" : "archive"} size={16} />
+                      <Icon name={scope === "history" ? "plus" : "archive"} size={16} />
                       {pending === thought.id
                         ? "处理中…"
-                        : closed
-                          ? "继续思考"
-                          : "归档"}
+                        : scope === "history"
+                          ? thought.inToday ? "已在今天" : "加入今天"
+                          : "收进历史"}
                     </button>
                     <button
                       className="text-button delete-thought-button"

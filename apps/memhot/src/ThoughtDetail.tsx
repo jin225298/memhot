@@ -12,6 +12,7 @@ export function ThoughtDetail({
   onDelete,
   onEdit,
   onArchive,
+  onAddToday,
   onResolved,
   onReport,
   onSource,
@@ -26,6 +27,7 @@ export function ThoughtDetail({
   onDelete: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onAddToday: () => void;
   onResolved: () => void;
   onReport: (id: string) => void;
   onSource: (id: string) => void;
@@ -40,7 +42,7 @@ export function ThoughtDetail({
       <div className="thought-detail-toolbar">
         <button className="text-button" onClick={onBack}>
           <Icon name="back" size={18} />
-          所有思考
+          返回思考
         </button>
         <button
           className="text-button delete-thought-button"
@@ -154,7 +156,7 @@ export function ThoughtDetail({
         ) : (
           <p className="muted section-note">
             {closed
-              ? "还没有研究材料，继续思考后可以寻找。"
+              ? "还没有研究材料，加入今天后可以寻找。"
               : "相关研究会放在这里，也可以现在开始寻找材料。"}
           </p>
         )}
@@ -171,19 +173,19 @@ export function ThoughtDetail({
       </div>
       <section className="thought-organize">
         <div>
-          <h2>{closed ? "这个问题已归档" : "先把这个问题收起来"}</h2>
+          <h2>{thought.inToday ? "先收起来，改天再想" : "想继续这个问题？"}</h2>
           <p>
-            {closed
-              ? "重新开始研究时，再把它移回来。"
-              : "归档后暂停研究，问题和材料仍然保留。"}
+            {thought.inToday
+              ? "收进历史后暂停研究，问题和材料仍然保留。"
+              : "加入今天，继续原来的思考。内容和研究材料都会保留。"}
           </p>
         </div>
         <div className="inline-actions">
-          <button className="secondary" disabled={busy} onClick={onArchive}>
-            <Icon name={closed ? "refresh" : "archive"} size={16} />
-            {closed ? "继续思考" : "归档"}
+          <button className="secondary" disabled={busy} onClick={thought.inToday ? onArchive : onAddToday}>
+            <Icon name={thought.inToday ? "archive" : "plus"} size={16} />
+            {thought.inToday ? "收进历史" : "加入今天"}
           </button>
-          {!closed && (
+          {thought.inToday && (
             <button
               className="text-button"
               disabled={busy}

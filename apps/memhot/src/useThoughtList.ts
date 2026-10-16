@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Api, errorText } from "./api";
+import { localDay } from "./thoughtArchive";
 import type { Thought } from "./types";
 
 export interface ThoughtFilters {
-  status: "active" | "archived";
+  scope: "today" | "history";
+  status: "all" | "active" | "archived";
   q: string;
   period: string;
   category: string;
@@ -15,7 +17,8 @@ interface Page {
   total: number;
   categories: string[];
   dates: string[];
-  counts: { active: number; archived: number };
+  todayDate?: string;
+  counts: { active: number; archived: number; today?: number; history?: number };
 }
 const empty: Page = {
   items: [],
@@ -30,7 +33,16 @@ export function useThoughtList(
   api: Api,
   recent: Thought[],
   filters: ThoughtFilters,
+  timezone: string,
 ) {
+  const [day, setDay] = useState(() => localDay(new Date().toISOString(), timezone));
+  useEffect(() => {
+    const update = () => setDay(localDay(new Date().toISOString(), timezone));
+    update();
+    const timer = setInterval(update, 60_000);
+    document.addEventListener("visibilitychange", update);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [timezone]);
   const [data, setData] = useState<Page>(empty);
   const [loaded, setLoaded] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +51,7 @@ export function useThoughtList(
   const controller = useRef<AbortController | null>(null);
   const params = new URLSearchParams({
     status: filters.status,
+    scope: filters.scope,
     period: filters.period,
     limit: "30",
   });
@@ -47,9 +60,9 @@ export function useThoughtList(
   }
   const query = params.toString();
   const signature = JSON.stringify(
-    recent.map((t) => [t.id, t.revision, t.status, t.analysisStatus]),
+    recent.map((t) => [t.id, t.revision, t.status, t.analysisStatus, t.inToday, t.thinkingDate]),
   );
-  const generation = `${query}:${signature}:${version}`;
+  const generation = `${day}:${query}:${signature}:${version}`;
   const currentGeneration = useRef(generation);
   currentGeneration.current = generation;
   useEffect(() => {
@@ -114,6 +127,7 @@ export function useThoughtList(
   useEffect(() => () => controller.current?.abort(), []);
   return {
     ...data,
+    currentDay: day,
     items: loaded === generation ? data.items : [],
     next: loaded === generation ? data.nextCursor : null,
     ready: loaded === generation,

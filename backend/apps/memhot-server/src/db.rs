@@ -46,6 +46,7 @@ PRAGMA user_version=1;")?;
             connection
                 .execute_batch("ALTER TABLE users ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0;")?;
         }
+        crate::thought_days::migrate(&connection)?;
         crate::job_scheduler::migrate(&connection)?;
         crate::accounts::migrate(&connection)?;
         crate::shared_public::migrate(&connection)?;
@@ -98,8 +99,13 @@ PRAGMA user_version=1;")?;
         client: Option<&str>,
     ) -> Result<Value> {
         let key = value["id"].as_str().ok_or_else(Error::internal)?;
-        let conn = self.conn()?;
-        conn.execute("INSERT INTO records(user_id,kind,id,data,client_id,created) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,kind,id) DO UPDATE SET data=excluded.data",params![user,kind,key,value.to_string(),client,value["createdAt"].as_str().unwrap_or("")])?;
+        let mut conn = self.conn()?;
+        let tx = conn.transaction()?;
+        tx.execute("INSERT INTO records(user_id,kind,id,data,client_id,created) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,kind,id) DO UPDATE SET data=excluded.data",params![user,kind,key,value.to_string(),client,value["createdAt"].as_str().unwrap_or("")])?;
+        if kind == "thought" {
+            crate::thought_days::initialize(&tx, user, value)?;
+        }
+        tx.commit()?;
         Ok(value.clone())
     }
     pub fn by_client(&self, user: &str, kind: &str, client: &str) -> Result<Option<Value>> {

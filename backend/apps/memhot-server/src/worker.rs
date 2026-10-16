@@ -75,6 +75,13 @@ async fn run_lane(app: App, lane: Lane) {
     }
 }
 pub async fn execute(app: &App, job: &Job) -> Result<()> {
+    if job.kind == "research" {
+        let conn = app.store.conn()?;
+        if !research::scheduled_applicable(&conn, job, chrono::Utc::now())? {
+            conn.execute("UPDATE jobs SET status='cancelled',lease_until=0,payload=json_set(payload,'$.expiredSchedule',json('true')),message='研究日期已过期，已停止自动处理' WHERE id=? AND user_id=? AND attempt=? AND status='running'",params![job.id,job.user,job.attempt])?;
+            return Ok(());
+        }
+    }
     if job.kind == "material_translation" {
         return crate::reading::translate(app, job).await;
     }
@@ -111,6 +118,7 @@ pub fn schedule(app: &App) -> Result<()> {
 }
 pub fn schedule_at(app: &App, at: chrono::DateTime<chrono::Utc>) -> Result<()> {
     for user in app.store.users()? {
+        research::cancel_stale(&*app.store.conn()?, &user, at)?;
         crate::digest::schedule_publication(app, &user, at)?;
         let p = app.store.profile(&user)?;
         let tz = p["timezone"]
@@ -164,20 +172,15 @@ pub fn schedule_at(app: &App, at: chrono::DateTime<chrono::Utc>) -> Result<()> {
                 &format!("digest:{date}"),
             )?;
         }
-        let mut thoughts = app.store.list_all(&user, "thought")?;
-        thoughts.reverse(); // New input enters the queue before untouched historical topics.
+        let thoughts = {
+            let conn = app.store.conn()?;
+            crate::thought_days::for_date(&conn, &user, &date)?
+        };
         for thought in thoughts {
             if !matches!(thought["status"].as_str(), Some("open" | "kept"))
                 || thought["researchEligible"] == false
                 || thought["mergedInto"].is_string()
             {
-                continue;
-            }
-            let eligible_date = thought["createdAt"]
-                .as_str()
-                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-                .map(|d| d.with_timezone(&tz).date_naive().to_string());
-            if eligible_date.as_deref().is_none_or(|d| d > date.as_str()) {
                 continue;
             }
             let key = thought["id"].as_str().ok_or_else(Error::internal)?;
@@ -192,7 +195,12 @@ pub fn schedule_at(app: &App, at: chrono::DateTime<chrono::Utc>) -> Result<()> {
                 )
                 .as_bytes(),
             );
-            app.store.queue(&user,"research",json!({"kind":"research","thoughtId":key,"date":date,"researchDate":date,"availableAt":available,"topicRevision":thought["revision"]}),&format!("research-content:{key}:{revision}"))?;
+            research::queue_scheduled(
+                app,
+                &user,
+                json!({"kind":"research","thoughtId":key,"date":date,"researchDate":date,"availableAt":available,"topicRevision":thought["revision"]}),
+                &format!("research-content:{key}:{revision}"),
+            )?;
         }
     }
     Ok(())

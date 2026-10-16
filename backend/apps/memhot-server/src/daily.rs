@@ -83,7 +83,11 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
         .collect();
     let ids: Vec<Value> = sources.iter().map(|s| s["id"].clone()).collect();
     let mut sections = Vec::new();
-    for t in app.store.list_all(&job.user, "thought")? {
+    let thoughts = {
+        let conn = app.store.conn()?;
+        crate::thought_days::for_date(&conn, &job.user, date)?
+    };
+    for t in thoughts {
         if matches!(t["status"].as_str(), Some("dismissed" | "resolved"))
             || t["mergedInto"].is_string()
         {
@@ -94,11 +98,6 @@ pub async fn run(app: &App, job: &Job) -> Result<Vec<(&'static str, Value)>> {
             refs.push(t["sourceId"].clone());
         }
         refs.retain(|id| ids.contains(id));
-        if refs.is_empty()
-            && !(t["origin"] == "manual" && local_date(&t, tz).as_deref() == Some(date))
-        {
-            continue;
-        }
         let mut notes = Vec::new();
         for evidence in t["evidenceRefs"]
             .as_array()

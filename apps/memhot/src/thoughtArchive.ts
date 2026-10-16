@@ -7,6 +7,12 @@ export function localDay(date: string, timezone: string): string {
   }).format(new Date(date));
 }
 
+export function thoughtDay(thought: Thought, timezone: string): string {
+  return thought.thinkingDate && /^\d{4}-\d{2}-\d{2}$/.test(thought.thinkingDate)
+    ? thought.thinkingDate
+    : localDay(thought.createdAt, timezone);
+}
+
 export function groupThoughts(
   thoughts: Thought[],
   timezone: string,
@@ -17,7 +23,7 @@ export function groupThoughts(
     const key =
       by === "category"
         ? thought.category?.trim() || "未分类"
-        : localDay(thought.createdAt, timezone);
+        : thoughtDay(thought, timezone);
     grouped.set(key, [...(grouped.get(key) || []), thought]);
   }
   return [...grouped]

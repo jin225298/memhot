@@ -58,7 +58,7 @@ describe("API failure semantics", () => {
     vi.stubGlobal("fetch", fetcher);
     expect(await api.home()).toEqual(emptyHome);
     expect(fetcher).toHaveBeenCalledWith(
-      "https://example.com/api/v1/home",
+      "https://example.com/api/v1/home?thoughtScope=today",
       expect.objectContaining({
         headers: { Authorization: "Bearer test-token" },
         method: "GET",

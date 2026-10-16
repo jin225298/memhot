@@ -15,8 +15,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
+#[path = "thought_scoped.rs"]
+mod scoped;
 #[derive(Deserialize)]
 pub struct Page {
+    scope: Option<String>,
     before: Option<String>,
     limit: Option<u32>,
     q: Option<String>,
@@ -186,6 +189,11 @@ pub async fn list(
     User(user): User,
     Query(page): Query<Page>,
 ) -> Result<Json<Value>> {
+    match page.scope.as_deref() {
+        Some("today" | "history") => return scoped::list(app, user, page),
+        None | Some("all") => {}
+        _ => return Err(Error::bad("思考范围无效")),
+    }
     let limit = page.limit.unwrap_or(50).clamp(1, 100);
     let profile = app.store.profile(&user)?;
     let tz = profile["timezone"]

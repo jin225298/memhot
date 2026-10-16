@@ -23,7 +23,10 @@ use serde_json::{json, Value};
 pub use crate::research_queue::queue;
 #[path = "research_lifecycle.rs"]
 mod lifecycle;
-pub(crate) use lifecycle::{cancel_archived, check_active, job_active, thought_active};
+pub(crate) use lifecycle::{
+    cancel_archived, cancel_stale, check_active, job_active, queue_scheduled, scheduled_applicable,
+    thought_active,
+};
 
 pub fn available(report: &Value) -> bool {
     report["availableAt"]

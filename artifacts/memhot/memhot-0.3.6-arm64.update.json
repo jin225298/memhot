@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.angelkang.memhot",
+  "version": "0.3.6",
+  "versionCode": 1009,
+  "minSdk": 24,
+  "abi": "arm64-v8a",
+  "url": "https://memhot.angelkang.com/downloads/memhot-0.3.6-arm64.apk",
+  "size": 44028570,
+  "sha256": "082e79c858ccdb11bf2134d984b3b4de06159b4e0cbdaa1902afda8f558ef406",
+  "notes": [
+    "思考默认显示今天，历史内容可按日期回看和搜索。",
+    "历史思考可通过「加入今天」继续，保留原有内容和研究材料。",
+    "已整理的旧内容不再自动带入今天，减少重复处理。"
+  ],
+  "publishedAt": "2026-10-16T04:31:27Z"
+}

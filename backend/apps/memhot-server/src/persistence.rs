@@ -26,6 +26,9 @@ pub(crate) fn current(
 pub(crate) fn put(tx: &Transaction<'_>, user: &str, kind: &str, value: &Value) -> Result<()> {
     tx.execute("INSERT INTO records(user_id,kind,id,data,created) VALUES(?,?,?,?,?) ON CONFLICT(user_id,kind,id) DO UPDATE SET data=excluded.data",
         params![user,kind,value["id"].as_str(),value.to_string(),value["createdAt"].as_str().unwrap_or("")])?;
+    if kind == "thought" {
+        crate::thought_days::initialize(tx, user, value)?;
+    }
     Ok(())
 }
 /// Deleting private context revokes in-flight work and its retained continuation data.

@@ -204,7 +204,7 @@ async fn leases_recover_and_stale_attempts_do_not_commit() {
     assert!(reopened.store.finish(&second, &[], "current").unwrap());
 }
 #[tokio::test]
-async fn scheduler_separates_digest_covers_all_threads_and_deduplicates() {
+async fn scheduler_separates_digest_skips_historical_threads_and_deduplicates() {
     let f = Fixture::new();
     let app = &f.app;
     let (uid, _) = user(app, "A").await;
@@ -218,7 +218,7 @@ async fn scheduler_separates_digest_covers_all_threads_and_deduplicates() {
     worker::schedule(app).unwrap();
     worker::schedule(app).unwrap();
     let jobs = app.store.jobs(&uid).unwrap();
-    assert_eq!(jobs.iter().filter(|j| j["kind"] == "research").count(), 5);
+    assert_eq!(jobs.iter().filter(|j| j["kind"] == "research").count(), 0);
     assert_eq!(jobs.iter().filter(|j| j["kind"] == "digest").count(), 1);
     let payload: String = app
         .store

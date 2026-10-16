@@ -60,6 +60,7 @@ pub mod subscription_store;
 mod subscription_tests;
 pub mod subscription_worker;
 pub mod subscriptions;
+mod thought_days;
 pub mod thought_list;
 pub mod topics;
 pub mod worker;

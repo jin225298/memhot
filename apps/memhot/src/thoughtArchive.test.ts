@@ -21,6 +21,14 @@ describe("thought archive", () => {
       "2026-10-12",
     );
   });
+  it("groups an explicit carry by its selected day without changing the original record", () => {
+    const original = { ...thought("same-id", "2026-10-12T02:00:00Z"), thinkingDate: "2026-10-12" };
+    const carried = { ...original, thinkingDate: "2026-10-16", inToday: true };
+    expect(groupThoughts([carried], "Asia/Shanghai", "date")[0].key).toBe("2026-10-16");
+    expect(groupThoughts([original], "Asia/Shanghai", "date")[0].key).toBe("2026-10-12");
+    expect(carried.id).toBe(original.id);
+    expect(carried.createdAt).toBe(original.createdAt);
+  });
   it("retains uncategorized and invalid-date legacy records", () => {
     const data = [
       thought("old", "bad"),

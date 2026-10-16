@@ -225,3 +225,7 @@
     font-size: 11px;
   }
 }
+
+.thought-empty-actions {
+  justify-content: center;
+}

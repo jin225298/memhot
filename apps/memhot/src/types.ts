@@ -33,6 +33,8 @@ export interface Source {
   };
 }
 export interface Thought {
+  thinkingDate?: string;
+  inToday?: boolean;
   id: string;
   category?: string;
   title: string;

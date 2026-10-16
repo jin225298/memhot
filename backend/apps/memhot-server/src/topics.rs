@@ -145,6 +145,7 @@ pub async fn create(
     crate::research::cancel_archived(&tx, &user, &value)?;
     memories::manual_interest(&tx, &user, &value, Some(&input))?;
     crate::daily::enqueue_today(&tx, &user)?;
+    crate::thought_days::annotate(&tx, &user, &mut value, None)?;
     tx.commit()?;
     Ok(Json(value))
 }
@@ -182,6 +183,7 @@ pub async fn update(
         (!explicit_content.is_empty()).then_some(&json!(explicit_content)),
     )?;
     crate::daily::enqueue_today(&tx, &user)?;
+    crate::thought_days::annotate(&tx, &user, &mut value, None)?;
     tx.commit()?;
     Ok(Json(value))
 }

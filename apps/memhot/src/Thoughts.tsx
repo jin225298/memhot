@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Api, errorText } from "./api";
 import { Empty, Loading, Notice } from "./components";
 import { Icon } from "./Icon";
@@ -11,7 +11,8 @@ import { ThoughtDelete } from "./ThoughtDelete";
 import { SelectField } from "./ui/select";
 
 const initialFilters: ThoughtFilters = {
-  status: "active",
+  scope: "today",
+  status: "all",
   q: "",
   period: "all",
   category: "",
@@ -28,7 +29,6 @@ export function Thoughts({
   onChanged: onParentChanged,
   onResearch,
   onDiscuss,
-  onAdd,
   onSource,
   busy,
 }: {
@@ -56,7 +56,10 @@ export function Thoughts({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState("");
-  const page = useThoughtList(api, recentThoughts, filters);
+  const page = useThoughtList(api, recentThoughts, filters, timezone);
+  const [detailError, setDetailError] = useState("");
+  const [detailRetry, setDetailRetry] = useState(0);
+  const detailRequest = useRef<AbortController | null>(null);
   useEffect(() => {
     const timer = setTimeout(
       () => setFilters((f) => ({ ...f, q: query.trim() })),
@@ -65,10 +68,40 @@ export function Thoughts({
     return () => clearTimeout(timer);
   }, [query]);
   const selected =
+    (opened?.id === selectedId ? opened : null) ||
     page.items.find((t) => t.id === selectedId) ||
-    (opened?.id === selectedId
-      ? opened
-      : recentThoughts.find((t) => t.id === selectedId));
+    recentThoughts.find((t) => t.id === selectedId);
+  useEffect(() => {
+    if (!selectedId) return;
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    setDetailError("");
+    api.request<Thought>(`/api/v1/thoughts/${encodeURIComponent(selectedId)}`, "GET", undefined, controller.signal)
+      .then((thought) => { if (!controller.signal.aborted) setOpened(thought); })
+      .catch((e) => { if (!controller.signal.aborted) setDetailError(errorText(e)); });
+    return () => controller.abort();
+  }, [api, selectedId, page.currentDay, detailRetry]);
+  function switchScope(scope: "today" | "history") {
+    setQuery("");
+    setFilters({ ...initialFilters, scope });
+    setError("");
+  }
+  async function addToday(thought: Thought) {
+    if (pending) return;
+    detailRequest.current?.abort();
+    setPending(thought.id);
+    setError("");
+    try {
+      const updated = await api.request<Thought>(
+        `/api/v1/thoughts/${encodeURIComponent(thought.id)}/today`, "POST",
+        { revision: thought.revision },
+      );
+      setOpened(updated);
+      setNotice("已加入今天，原来的内容和研究材料仍然保留。");
+      changed();
+    } catch (e) { setError(errorText(e)); }
+    finally { setPending(""); }
+  }
   function changed() {
     page.reload();
     onParentChanged();
@@ -81,6 +114,8 @@ export function Thoughts({
     if (pending) return;
     const closed =
       thought.status === "dismissed" || thought.status === "resolved";
+    if (closed) { await addToday(thought); return; }
+    detailRequest.current?.abort();
     setPending(thought.id);
     setError("");
     try {
@@ -88,15 +123,11 @@ export function Thoughts({
         `/api/v1/thoughts/${encodeURIComponent(thought.id)}/feedback`,
         "POST",
         {
-          action: resolved ? "resolved" : closed ? "keep" : "dismiss",
+          action: resolved ? "resolved" : "dismiss",
           revision: thought.revision,
         },
       );
-      setNotice(
-        closed
-          ? "已移回正在思考。"
-          : "已归档，可以在「已归档」中找到。不会因此减少类似推荐。",
-      );
+      setNotice("已收进历史，问题和研究材料仍然保留。");
       onSelect(null);
       changed();
     } catch (e) {
@@ -110,7 +141,7 @@ export function Thoughts({
   );
   function reset() {
     setQuery("");
-    setFilters((f) => ({ ...initialFilters, status: f.status }));
+    setFilters((f) => ({ ...initialFilters, scope: f.scope }));
   }
   const deletion = removing && (
     <ThoughtDelete
@@ -150,19 +181,26 @@ export function Thoughts({
         }}
       />
     );
+  if (selectedId && !selected)
+    return <>
+      <button className="text-button" onClick={() => onSelect(null)}><Icon name="back" size={18} />返回思考</button>
+      {detailError ? <Notice error={detailError} onRetry={() => setDetailRetry((n) => n + 1)} /> : <Loading />}
+    </>;
   if (selected)
     return (
       <>
         {deletion}
+        {notice && <p className="success-message" role="status">{notice}</p>}
         <ThoughtDetail
           thought={selected}
           reports={reports}
           busy={busy || pending === selected.id}
-          error={error}
+          error={error || detailError}
           onBack={() => onSelect(null)}
           onDelete={() => setRemoving(selected)}
           onEdit={() => setEditing(selected)}
           onArchive={() => void archive(selected)}
+          onAddToday={() => void addToday(selected)}
           onResolved={() => void archive(selected, true)}
           onReport={onReport}
           onSource={onSource}
@@ -177,23 +215,23 @@ export function Thoughts({
       <div className="page-heading">
         <div>
           <h1>思考</h1>
-          <p className="muted">把正在想的事，慢慢理清楚。</p>
+          <p className="muted">今天想什么，就从这里开始。</p>
         </div>
         <button className="secondary" onClick={() => setEditing("new")}>
           <Icon name="plus" size={18} />
           新增思考
         </button>
       </div>
-      <div className="section-tabs" role="group" aria-label="思考状态">
-        {(["active", "archived"] as const).map((status) => (
+      <div className="section-tabs" role="group" aria-label="思考日期">
+        {(["today", "history"] as const).map((scope) => (
           <button
-            key={status}
-            aria-pressed={filters.status === status}
-            className={filters.status === status ? "selected" : ""}
-            onClick={() => setFilters((f) => ({ ...f, status }))}
+            key={scope}
+            aria-pressed={filters.scope === scope}
+            className={filters.scope === scope ? "selected" : ""}
+            onClick={() => switchScope(scope)}
           >
-            {status === "active" ? "正在思考" : "已归档"}
-            <span>{page.counts?.[status] || 0}</span>
+            {scope === "today" ? "今天" : "历史"}
+            {page.counts?.[scope] !== undefined && <span>{page.counts[scope]}</span>}
           </button>
         ))}
       </div>
@@ -203,14 +241,14 @@ export function Thoughts({
           <input
             type="search"
             maxLength={200}
-            aria-label="搜索全部思考"
+            aria-label={filters.scope === "today" ? "搜索今天的思考" : "搜索历史思考"}
             placeholder="搜索问题、摘要和原话"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
         <div className="thought-filter-row">
-          <SelectField
+          {filters.scope === "history" && <SelectField
             label="思考时间"
             value={filters.date ? `date:${filters.date}` : filters.period}
             onValueChange={(v) =>
@@ -229,7 +267,7 @@ export function Thoughts({
                 label: d.replaceAll("-", "."),
               })),
             ]}
-          />
+          />}
           <SelectField
             label="思考分类"
             value={filters.category ? `category:${filters.category}` : "all"}
@@ -285,37 +323,21 @@ export function Thoughts({
       ) : page.ready && page.items.length === 0 ? (
         <Empty
           icon="thought"
-          title={
-            filtering
-              ? "没有找到这些思考"
-              : filters.status === "archived"
-                ? "还没有归档的思考"
-                : "记下你想探索的问题"
-          }
-          action={
-            <button
-              className="secondary"
-              onClick={
-                filtering
-                  ? reset
-                  : filters.status === "archived"
-                    ? () => setFilters(initialFilters)
-                    : onAdd
-              }
-            >
-              {filtering
-                ? "清除筛选"
-                : filters.status === "archived"
-                  ? "回到正在思考"
-                  : "记下想法"}
-            </button>
-          }
+          title={filtering ? "没有找到这些思考" : filters.scope === "today" ? "今天还没有思考" : "还没有历史思考"}
+          action={filtering ? (
+            <button className="secondary" onClick={reset}>清除筛选</button>
+          ) : (
+            <div className="inline-actions thought-empty-actions">
+              <button className="secondary" onClick={() => setEditing("new")}>新增思考</button>
+              <button className="text-button" onClick={() => switchScope(filters.scope === "today" ? "history" : "today")}>
+                {filters.scope === "today" ? "查看历史" : "回到今天"}
+              </button>
+            </div>
+          )}
         >
-          {filtering
-            ? "试试其他关键词，搜索也会查找以前的记录。"
-            : filters.status === "archived"
-              ? "暂时放下或已经想清楚的问题，可以收在这里。"
-              : "录音、导入对话，也可以直接新增思考。"}
+          {filtering ? "试试其他关键词或筛选条件。" : filters.scope === "today"
+            ? "记下新的想法，或从历史中选一个加入今天。"
+            : "以前的思考会保留在这里。想继续时，点「加入今天」。"}
         </Empty>
       ) : (
         page.items.length > 0 && (
@@ -327,7 +349,9 @@ export function Thoughts({
             groupBy={groupBy}
             expanded={Boolean(filters.q || filters.date || filters.category)}
             onSelect={select}
+            scope={filters.scope}
             onArchive={(t) => void archive(t)}
+            onAddToday={(t) => void addToday(t)}
             onDelete={setRemoving}
             pending={pending}
           />

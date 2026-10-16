@@ -83,7 +83,7 @@ export class Api {
   }
   async home(signal?: AbortSignal): Promise<Home> {
     const home = await this.request<Home>(
-      "/api/v1/home",
+      "/api/v1/home?thoughtScope=today",
       "GET",
       undefined,
       signal,
